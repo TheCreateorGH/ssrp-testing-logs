@@ -8,10 +8,10 @@ app.listen(PORT, async () => {
     const logs = await readAllLogs();
     scheduler.start();
     console.log(`
-╔════════════════════════════════════════════════════╗
-║  ☣  SSRP TEST LOG SYSTEM  v2.0  — ONLINE           ║
-║  http://localhost:${PORT}                             ║
-║  Loaded ${String(logs.length).padEnd(3)} existing log(s) from /logs/        ║
-╚════════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════════════════════════════════════════════╗
+║  ☣  SSRP TEST LOG SYSTEM  v2.0  — ONLINE                                                        ║
+║  https://ssrp-testing-logs.onrender.com/ OR http://localhost:${PORT}                             ║
+║  Loaded ${String(logs.length).padEnd(3)} existing log(s) from /logs/                             ║
+╚══════════════════════════════════════════════════════════════════════════════════════════════════╝
 `);
 });

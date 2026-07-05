@@ -1,0 +1,303 @@
+{
+  "008": {
+    "class": "euclid",
+    "clearance": 2,
+    "location": "c2",
+    "name": "Zombie Plague",
+    "sector": "x"
+  },
+  "017": {
+    "class": "keter",
+    "clearance": 4,
+    "location": "cx",
+    "name": "Shadow Person",
+    "sector": "x"
+  },
+  "034": {
+    "class": "safe",
+    "clearance": 2,
+    "location": "c2",
+    "name": "Obsidian Ritual Knife",
+    "sector": "x"
+  },
+  "035": {
+    "class": "keter",
+    "clearance": 3,
+    "location": "c2",
+    "name": "Possesive Mask",
+    "sector": "x"
+  },
+  "049": {
+    "class": "euclid",
+    "clearance": 4,
+    "location": "cx",
+    "name": "Plague Doctor",
+    "sector": "x"
+  },
+  "076-2": {
+    "class": "keter",
+    "clearance": -1,
+    "location": "lcx",
+    "name": "Able",
+    "sector": "x"
+  },
+  "087": {
+    "class": "euclid",
+    "clearance": 0,
+    "location": "c1",
+    "name": "The Stairwell",
+    "sector": "x"
+  },
+  "093": {
+    "class": "euclid",
+    "clearance": 2,
+    "location": "c2",
+    "name": "Red Sea Object",
+    "sector": "x"
+  },
+  "096": {
+    "class": "euclid",
+    "clearance": 4,
+    "location": "lcx",
+    "name": "Shy Guy",
+    "sector": "x"
+  },
+  "106": {
+    "class": "keter",
+    "clearance": 4,
+    "location": "lcx",
+    "name": "The Old Man",
+    "sector": "x"
+  },
+  "120": {
+    "class": "safe",
+    "clearance": 0,
+    "location": "c1",
+    "name": "Teleporting Paddling Pool",
+    "sector": "x"
+  },
+  "148": {
+    "class": "euclid",
+    "clearance": 0,
+    "location": "c1",
+    "name": "The 'Telekill' Alloy",
+    "sector": "x"
+  },
+  "173": {
+    "class": "euclid",
+    "clearance": 2,
+    "location": "c2",
+    "name": "The Sculpture",
+    "sector": "x"
+  },
+  "178": {
+    "class": "euclid",
+    "clearance": 0,
+    "location": "c1",
+    "name": "3D' Specs",
+    "sector": "x"
+  },
+  "207": {
+    "class": "safe",
+    "clearance": 0,
+    "location": "c1",
+    "name": "Cola Bottles",
+    "sector": "x"
+  },
+  "224": {
+    "class": "euclid",
+    "clearance": 0,
+    "location": "c1",
+    "name": "Grandfather Clock",
+    "sector": "x"
+  },
+  "310": {
+    "class": "euclid",
+    "clearance": 2,
+    "location": "c2",
+    "name": "Eternal Flame",
+    "sector": "x"
+  },
+  "323": {
+    "class": "euclid",
+    "clearance": 4,
+    "location": "cx",
+    "name": "Wendigo Skull",
+    "sector": "x"
+  },
+  "330": {
+    "class": "safe",
+    "clearance": 0,
+    "location": "c1",
+    "name": "Take Only Two",
+    "sector": "x"
+  },
+  "394": {
+    "class": "safe",
+    "clearance": 0,
+    "location": "c1",
+    "name": "Ear Candels",
+    "sector": "x"
+  },
+  "403": {
+    "class": "safe",
+    "clearance": 0,
+    "location": "c1",
+    "name": "Escalating Lighter",
+    "sector": "x"
+  },
+  "409": {
+    "class": "keter",
+    "clearance": 3,
+    "location": "c2",
+    "name": "Contagious Crystal",
+    "sector": "x"
+  },
+  "457": {
+    "class": "keter",
+    "clearance": 4,
+    "location": "cx",
+    "name": "Burning Man",
+    "sector": "x"
+  },
+  "498": {
+    "class": "safe",
+    "clearance": 2,
+    "location": "c1",
+    "name": "11 Minute Snooze",
+    "sector": "x"
+  },
+  "517": {
+    "class": "safe",
+    "clearance": 0,
+    "location": "c1",
+    "name": "Grammie Knows",
+    "sector": "x"
+  },
+  "569": {
+    "class": "euclid",
+    "clearance": 2,
+    "location": "c2",
+    "name": "Skulls",
+    "sector": "x"
+  },
+  "610": {
+    "class": "keter",
+    "clearance": -1,
+    "location": "lcx",
+    "name": "The Flesh that Hates",
+    "sector": "x"
+  },
+  "701": {
+    "class": "euclid",
+    "clearance": 2,
+    "location": "c2",
+    "name": "The Hanged King's Tragedy",
+    "sector": "x"
+  },
+  "714": {
+    "class": "safe",
+    "clearance": 0,
+    "location": "c1",
+    "name": "The Jade Ring",
+    "sector": "x"
+  },
+  "860": {
+    "class": "safe",
+    "clearance": 0,
+    "location": "c1",
+    "name": "Blue Key",
+    "sector": "x"
+  },
+  "902": {
+    "class": "keter",
+    "clearance": 0,
+    "location": "c1",
+    "name": "The Final Countdown",
+    "sector": "x"
+  },
+  "914": {
+    "class": "safe",
+    "clearance": 0,
+    "location": "c1",
+    "name": "The Clockworks",
+    "sector": "x"
+  },
+  "939": {
+    "class": "keter",
+    "clearance": 4,
+    "location": "cx",
+    "name": "With Many Voices",
+    "sector": "x"
+  },
+  "999": {
+    "class": "safe",
+    "clearance": 0,
+    "location": "c1",
+    "name": "The Tickle Monster",
+    "sector": "x"
+  },
+  "1025": {
+    "class": "safe",
+    "clearance": 0,
+    "location": "c1",
+    "name": "Encyclopedia of Diseases",
+    "sector": "x"
+  },
+  "1056": {
+    "class": "safe",
+    "clearance": 0,
+    "location": "c1",
+    "name": "Re-size It!",
+    "sector": "x"
+  },
+  "1139": {
+    "class": "euclid",
+    "clearance": 0,
+    "location": "c1",
+    "name": "The Broken Tongue",
+    "sector": "x"
+  },
+  "1162": {
+    "class": "safe",
+    "clearance": 1,
+    "location": "c2",
+    "name": "A Hole in the Wall",
+    "sector": "x"
+  },
+  "1193": {
+    "class": "safe",
+    "clearance": 0,
+    "location": "c1",
+    "name": "Buried Giant",
+    "sector": "x"
+  },
+  "1499": {
+    "class": "safe",
+    "clearance": 0,
+    "location": "c1",
+    "name": "The Gas Mask",
+    "sector": "x"
+  },
+  "2006": {
+    "class": "keter",
+    "clearance": 4,
+    "location": "cx",
+    "name": "Too Spooky",
+    "sector": "x"
+  },
+  "2059": {
+    "class": "euclid",
+    "clearance": 2,
+    "location": "c2",
+    "name": "Wall of Flesh",
+    "sector": "x"
+  },
+  "2521": {
+    "class": "keter",
+    "clearance": 2,
+    "location": "c2",
+    "name": "●●|●●●●●|●●|●",
+    "sector": "x"
+  }
+}

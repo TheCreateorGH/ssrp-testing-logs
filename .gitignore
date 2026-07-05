@@ -1,0 +1,7 @@
+node_modules
+facility_logs
+logs
+*lock.json
+
+prompt.xml
+*.mmd

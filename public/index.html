@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>☣ SSRP — Site Security Reporting Platform</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ═══ Icon sprite (referenced via <use href="#icon-x">) ═══════════════════ -->
+<svg style="display:none" aria-hidden="true">
+  <defs>
+    <g id="ico-stroke" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></g>
+    <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><line x1="21" y1="21" x2="16.2" y2="16.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="icon-plus" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="icon-sliders" viewBox="0 0 24 24"><line x1="5" y1="4" x2="5" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="4" x2="12" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="19" y1="4" x2="19" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="5" cy="9" r="2.2" fill="currentColor"/><circle cx="12" cy="15" r="2.2" fill="currentColor"/><circle cx="19" cy="7" r="2.2" fill="currentColor"/></symbol>
+    <symbol id="icon-x" viewBox="0 0 24 24"><line x1="5" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><line x1="19" y1="5" x2="5" y2="19" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+    <symbol id="icon-chevron-down" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-chevron-left" viewBox="0 0 24 24"><polyline points="15 6 9 12 15 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-download" viewBox="0 0 24 24"><path d="M12 3v12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><polyline points="7 11 12 16 17 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 19h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="icon-upload" viewBox="0 0 24 24"><path d="M12 21V9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><polyline points="7 13 12 8 17 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 4h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="icon-edit" viewBox="0 0 24 24"><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-trash" viewBox="0 0 24 24"><polyline points="4 7 20 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="9.5" y1="11" x2="9.5" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="14.5" y1="11" x2="14.5" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M9 7V4h6v3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-save" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 4v6h7V4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 20v-6h8v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-radio" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.2" fill="currentColor"/><path d="M8.5 8.5a5 5 0 0 0 0 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M5.5 5.5a9 9 0 0 0 0 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M18.5 5.5a9 9 0 0 1 0 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="icon-warhead" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="2" x2="12" y2="7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="17" x2="12" y2="22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="2" y1="12" x2="7" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="17" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="4.9" y1="4.9" x2="8.3" y2="8.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="15.7" y1="15.7" x2="19.1" y2="19.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="19.1" y1="4.9" x2="15.7" y2="8.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="8.3" y1="15.7" x2="4.9" y2="19.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="icon-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-activity" viewBox="0 0 24 24"><polyline points="3 12 8 12 10 6 14 18 16 12 21 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-bell" viewBox="0 0 24 24"><path d="M6 10a6 6 0 0 1 12 0c0 4 1.5 5.5 1.5 5.5H4.5S6 14 6 10Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M10 19a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="icon-alert-triangle" viewBox="0 0 24 24"><path d="M12 4 2 20h20Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><line x1="12" y1="10" x2="12" y2="14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.2" r="1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="icon-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><polyline points="8 12.5 11 15.5 16 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-inbox" viewBox="0 0 24 24"><path d="M3 12h5l2 3h4l2-3h5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M5.5 5h13L21 12v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-plug" viewBox="0 0 24 24"><path d="M9 3v6M15 3v6M6 9h12l-1.5 5a4.5 4.5 0 0 1-4.5 3.5A4.5 4.5 0 0 1 7.5 14Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 17.5V21" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="icon-filter" viewBox="0 0 24 24"><path d="M4 5h16l-6 8v6l-4 2v-8Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="15.5" r="1.4" fill="currentColor"/></symbol>
+  </defs>
+</svg>
+
+<!-- ═══ Connection fault overlay ═══════════════════════════════════════════ -->
+<div class="fault-overlay" id="faultOverlay">
+  <div class="fault-card" id="faultCard">
+    <div class="fault-card__head" id="faultHead">CORE CONNECTION FAULT</div>
+    <div class="fault-card__body">
+      <svg class="icon" id="faultIcon"><use href="#icon-plug"/></svg>
+      <div class="fault-card__title" id="faultTitle">LINK TO SITE SERVER LOST</div>
+      <p class="fault-card__text" id="faultText">The console can't reach the facility database. Confirm the server is running and reachable.</p>
+      <div class="fault-diag">
+        <div class="fault-diag__type" id="faultType">UNKNOWN_EXCEPTION</div>
+        <div class="fault-diag__msg" id="faultMsg">No additional diagnostic data.</div>
+      </div>
+      <div class="fault-advanced" id="faultAdvanced">
+        <label for="faultIpInput">Override Site Server URL</label>
+        <div class="row">
+          <input type="text" id="faultIpInput" placeholder="http://127.0.0.1:3000">
+          <button class="btn btn--primary btn--sm" data-action="fault-apply-base">Apply</button>
+        </div>
+      </div>
+      <p style="margin-bottom:var(--sp-4)" id="faultAdvancedToggleWrap"><a class="fault-toggle-link" data-action="fault-toggle-advanced">[ Advanced Options ]</a></p>
+      <div class="fault-actions">
+        <button class="btn btn--primary" data-action="fault-retry">Retry Connection</button>
+        <button class="btn btn--ghost" data-action="fault-dismiss">Dismiss</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Topbar ══════════════════════════════════════════════════════════════ -->
+<header class="topbar">
+  <div class="topbar__brand">
+    <div class="brand-mark">☣</div>
+    <div class="brand-text">
+      <div class="brand-title" id="brandTitle">SSRP</div>
+      <div class="brand-sub" id="brandSub">Site Security Reporting Platform</div>
+    </div>
+  </div>
+  <div class="topbar__actions">
+    <div class="session-badge hidden" id="sessionBadge" data-action="toggle-session-menu">
+      <span class="session-badge__role" id="sessionBadgeRole">—</span>
+      <span class="session-badge__name" id="sessionBadgeName">—</span>
+      <div class="session-menu" id="sessionMenu">
+        <div class="session-menu__meta">
+          <div id="sessionMenuName">—</div>
+          <div class="session-menu__role" id="sessionMenuRole">—</div>
+        </div>
+        <button class="drawer__item" data-action="logout"><svg class="icon icon--sm"><use href="#icon-x"/></svg><span>End Session</span></button>
+      </div>
+    </div>
+    <div class="hidden" id="topbarAuthActions" style="display:contents">
+      <button class="btn btn--icon" data-action="show-board" aria-label="Containment status board" title="Containment Status Board">
+        <svg class="icon"><use href="#icon-shield"/></svg>
+      </button>
+      <button class="btn btn--primary" data-action="new-log">
+        <svg class="icon"><use href="#icon-plus"/></svg><span>New Log</span>
+      </button>
+      <button class="btn btn--icon" data-action="toggle-drawer" aria-label="Open ops console" title="Ops Console (o)">
+        <svg class="icon"><use href="#icon-sliders"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ═══ Status strip (signature element) ═══════════════════════════════════ -->
+<div class="status-strip" role="status" aria-live="polite">
+  <div class="status-seg" id="stripAlarmSeg" data-kind="alarm">
+    <svg class="icon icon--sm"><use href="#icon-bell"/></svg>
+    <span class="status-seg__label">Alarm</span><span class="status-seg__value" id="stripAlarmVal">None</span>
+  </div>
+  <div class="status-seg" id="stripThreatSeg" data-kind="threat">
+    <svg class="icon icon--sm"><use href="#icon-activity"/></svg>
+    <span class="status-seg__label">Threat</span><span class="status-seg__value" id="stripThreatVal">Low</span>
+  </div>
+  <div class="status-seg" id="stripCdcSeg" data-kind="cdc">
+    <svg class="icon icon--sm"><use href="#icon-shield"/></svg>
+    <span class="status-seg__label">CDC</span><span class="status-seg__value" id="stripCdcVal">Unknown</span>
+  </div>
+  <div class="status-clock"><span class="dot"></span><span id="statusClock">00:00:00 Z</span></div>
+  <div class="live-feed-indicator" id="liveFeedIndicator" title="Live feed connection">
+    <span class="live-feed-indicator__dot"></span><span class="live-feed-indicator__label" id="liveFeedLabel">Live Feed</span>
+  </div>
+</div>
+
+<!-- ═══ Ops console drawer ═════════════════════════════════════════════════ -->
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="opsDrawer" aria-hidden="true">
+  <div class="drawer__head">
+    <span class="drawer__title">OPS CONSOLE</span>
+    <button class="btn btn--icon btn--ghost" data-action="toggle-drawer" aria-label="Close ops console"><svg class="icon"><use href="#icon-x"/></svg></button>
+  </div>
+  <div class="drawer__body">
+    <div class="drawer__group">
+      <div class="drawer__group-label">Emergency</div>
+      <button class="drawer__item drawer__item--danger" data-action="open-modal" data-modal="breach" data-ops-action="BREACH">
+        <svg class="icon"><use href="#icon-alert-triangle"/></svg><span>Log Containment Breach</span><svg class="icon icon--sm drawer__lock hidden"><use href="#icon-lock"/></svg>
+      </button>
+      <button class="drawer__item drawer__item--warn" data-action="cdc-riot" data-ops-action="CDC_RIOT">
+        <svg class="icon"><use href="#icon-activity"/></svg><span>Log Class-D Riot</span><svg class="icon icon--sm drawer__lock hidden"><use href="#icon-lock"/></svg>
+      </button>
+      <button class="drawer__item drawer__item--info hidden" id="endBreachItem" data-action="open-modal" data-modal="breach-end" data-ops-action="BREACH_END">
+        <svg class="icon"><use href="#icon-check-circle"/></svg><span>End Active Breach</span><svg class="icon icon--sm drawer__lock hidden"><use href="#icon-lock"/></svg>
+      </button>
+    </div>
+    <div class="drawer__group">
+      <div class="drawer__group-label">Site Levels</div>
+      <button class="drawer__item" data-action="open-modal" data-modal="alarm" data-ops-action="ALARM">
+        <svg class="icon"><use href="#icon-bell"/></svg><span>Set Alarm State</span><svg class="icon icon--sm drawer__lock hidden"><use href="#icon-lock"/></svg>
+      </button>
+      <button class="drawer__item" data-action="open-modal" data-modal="threat" data-ops-action="THREAT">
+        <svg class="icon"><use href="#icon-activity"/></svg><span>Set Threat Level</span><svg class="icon icon--sm drawer__lock hidden"><use href="#icon-lock"/></svg>
+      </button>
+      <button class="drawer__item" data-action="open-modal" data-modal="cdc" data-ops-action="CDC">
+        <svg class="icon"><use href="#icon-shield"/></svg><span>Set CDC Status</span><svg class="icon icon--sm drawer__lock hidden"><use href="#icon-lock"/></svg>
+      </button>
+    </div>
+    <div class="drawer__group">
+      <div class="drawer__group-label">Broadcast &amp; Ordnance</div>
+      <button class="drawer__item drawer__item--info" data-action="open-modal" data-modal="broadcast" data-ops-action="BROADCAST">
+        <svg class="icon"><use href="#icon-radio"/></svg><span>Site-Wide Broadcast</span><svg class="icon icon--sm drawer__lock hidden"><use href="#icon-lock"/></svg>
+      </button>
+      <button class="drawer__item drawer__item--warn" data-action="open-modal" data-modal="nuke" data-ops-action="WARHEAD">
+        <svg class="icon"><use href="#icon-warhead"/></svg><span>Warhead Control</span><svg class="icon icon--sm drawer__lock hidden"><use href="#icon-lock"/></svg>
+      </button>
+    </div>
+    <div class="drawer__group">
+      <div class="drawer__group-label">Scheduling</div>
+      <button class="drawer__item" data-action="open-modal" data-modal="schedule">
+        <svg class="icon"><use href="#icon-clock"/></svg><span>Schedule a Test</span>
+      </button>
+      <button class="drawer__item" data-action="open-modal" data-modal="schedule-list">
+        <svg class="icon"><use href="#icon-filter"/></svg><span>View Scheduled Tests</span>
+      </button>
+    </div>
+    <div class="drawer__group">
+      <div class="drawer__group-label">Data</div>
+      <button class="drawer__item" data-action="open-modal" data-modal="import">
+        <svg class="icon"><use href="#icon-upload"/></svg><span>Import Markdown Log</span>
+      </button>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══ Modals ══════════════════════════════════════════════════════════════ -->
+
+<div class="modal-layer" id="modal-import">
+  <div class="modal">
+    <div class="modal__head"><span class="modal__title"><svg class="icon"><use href="#icon-upload"/></svg>Import Markdown Log</span><button class="btn btn--icon btn--ghost" data-action="close-modal"><svg class="icon"><use href="#icon-x"/></svg></button></div>
+    <div class="modal__body">
+      <p class="modal__desc">Paste a YAML-frontmatter markdown log. Logs with matching IDs will be overwritten.</p>
+      <textarea id="importTextarea" rows="12" placeholder="---&#10;id: ...&#10;scp: &quot;106&quot;&#10;---"></textarea>
+    </div>
+    <div class="modal__foot">
+      <button class="btn btn--primary" data-action="submit-import">Import Log</button>
+      <button class="btn btn--ghost" data-action="close-modal">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-layer" id="modal-breach">
+  <div class="modal">
+    <div class="modal__head" style="--tone:var(--signal)"><span class="modal__title"><svg class="icon"><use href="#icon-alert-triangle"/></svg>Containment Breach</span><button class="btn btn--icon btn--ghost" data-action="close-modal"><svg class="icon"><use href="#icon-x"/></svg></button></div>
+    <div class="modal__body">
+      <div class="picker">
+        <input type="text" id="breachScpSearch" placeholder="Search breaching SCP…" autocomplete="off">
+        <div class="picker-drop hidden" id="breachAutocomplete"></div>
+      </div>
+      <div id="breachSelectedInfo" style="margin-top:var(--sp-3)"></div>
+    </div>
+    <div class="modal__foot">
+      <button class="btn btn--danger" data-action="submit-breach">Log Breach</button>
+      <button class="btn btn--ghost" data-action="close-modal">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-layer" id="modal-breach-end">
+  <div class="modal">
+    <div class="modal__head" style="--tone:var(--clear)"><span class="modal__title"><svg class="icon"><use href="#icon-check-circle"/></svg>Terminate Breach</span><button class="btn btn--icon btn--ghost" data-action="close-modal"><svg class="icon"><use href="#icon-x"/></svg></button></div>
+    <div class="modal__body">
+      <p class="modal__desc">Select an active breach to mark as terminated:</p>
+      <div id="activeBreachList"></div>
+    </div>
+    <div class="modal__foot">
+      <button class="btn btn--ghost" data-action="close-modal">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-layer" id="modal-broadcast">
+  <div class="modal">
+    <div class="modal__head" style="--tone:var(--access)"><span class="modal__title"><svg class="icon"><use href="#icon-radio"/></svg>Site-Wide Broadcast</span><button class="btn btn--icon btn--ghost" data-action="close-modal"><svg class="icon"><use href="#icon-x"/></svg></button></div>
+    <div class="modal__body">
+      <div class="field"><label class="field__label" for="fBroadcastContent">Broadcast Content</label>
+      <textarea id="fBroadcastContent" rows="4" placeholder="Enter the broadcast message…"></textarea></div>
+    </div>
+    <div class="modal__foot">
+      <button class="btn btn--primary" data-action="submit-broadcast">Log Broadcast</button>
+      <button class="btn btn--ghost" data-action="close-modal">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-layer" id="modal-nuke">
+  <div class="modal">
+    <div class="modal__head" style="--tone:var(--caution)"><span class="modal__title"><svg class="icon"><use href="#icon-warhead"/></svg>Warhead Control</span><button class="btn btn--icon btn--ghost" data-action="close-modal"><svg class="icon"><use href="#icon-x"/></svg></button></div>
+    <div class="modal__body">
+      <div class="option-grid">
+        <button class="option-btn" style="--tone:var(--caution)" data-action="submit-nuke" data-key="initialized"><span class="option-btn__big">T-120s</span><span class="option-btn__small">Nuke Initialized</span></button>
+        <button class="option-btn" style="--tone:var(--access)" data-action="submit-nuke" data-key="surface_sealed"><span class="option-btn__big">T-30s</span><span class="option-btn__small">Surface Gate Sealed</span></button>
+        <button class="option-btn" style="--tone:var(--signal)" data-action="submit-nuke" data-key="exploded"><span class="option-btn__big">T-0s</span><span class="option-btn__small">Nuke Exploded</span></button>
+        <button class="option-btn" style="--tone:var(--cd)" data-action="submit-nuke" data-key="autonuke"><span class="option-btn__big">T-30s</span><span class="option-btn__small">610 Autonuke</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-layer" id="modal-alarm">
+  <div class="modal">
+    <div class="modal__head"><span class="modal__title"><svg class="icon"><use href="#icon-bell"/></svg>Alarm State Control</span><button class="btn btn--icon btn--ghost" data-action="close-modal"><svg class="icon"><use href="#icon-x"/></svg></button></div>
+    <div class="modal__body">
+      <p class="modal__desc">Select an alarm state to log and broadcast site-wide.</p>
+      <div class="option-grid" id="alarmOptionGrid"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-layer" id="modal-threat">
+  <div class="modal">
+    <div class="modal__head"><span class="modal__title"><svg class="icon"><use href="#icon-activity"/></svg>Threat Level Control</span><button class="btn btn--icon btn--ghost" data-action="close-modal"><svg class="icon"><use href="#icon-x"/></svg></button></div>
+    <div class="modal__body">
+      <p class="modal__desc">Select a threat level to log and broadcast site-wide.</p>
+      <div class="option-grid" id="threatOptionGrid"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-layer" id="modal-cdc">
+  <div class="modal">
+    <div class="modal__head"><span class="modal__title"><svg class="icon"><use href="#icon-shield"/></svg>CDC Status Control</span><button class="btn btn--icon btn--ghost" data-action="close-modal"><svg class="icon"><use href="#icon-x"/></svg></button></div>
+    <div class="modal__body">
+      <p class="modal__desc">Select a CDC status to log and broadcast site-wide.</p>
+      <div class="option-grid" id="cdcOptionGrid"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-layer" id="modal-termination">
+  <div class="modal">
+    <div class="modal__head" style="--tone:var(--signal)"><span class="modal__title"><svg class="icon"><use href="#icon-alert-triangle"/></svg>Casualty Confirmation</span><button class="btn btn--icon btn--ghost" data-action="close-modal"><svg class="icon"><use href="#icon-x"/></svg></button></div>
+    <div class="modal__body">
+      <p class="modal__desc">This log records personnel casualties. Each loss below will be permanently appended to the audit trail as an individual, timestamped entry.</p>
+      <div id="terminationSummary" class="badge-row" style="margin-bottom:var(--sp-4)"></div>
+      <div class="field">
+        <label class="field__label" for="fTerminationReason">Reason for Termination / Death (optional)</label>
+        <textarea id="fTerminationReason" rows="3" placeholder="e.g. Contained after breach of Chamber 3, terminated per Foundation protocol…"></textarea>
+      </div>
+    </div>
+    <div class="modal__foot">
+      <button class="btn btn--danger" data-action="confirm-termination"><svg class="icon icon--sm"><use href="#icon-check-circle"/></svg>Confirm and Send</button>
+      <button class="btn btn--ghost" data-action="cancel-termination">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-layer" id="modal-confirm">
+  <div class="modal">
+    <div class="modal__body confirm-card">
+      <svg class="icon"><use href="#icon-alert-triangle"/></svg>
+      <div class="confirm-card__msg" id="confirmMsg">Are you sure?</div>
+      <div class="confirm-card__sub" id="confirmSub">This action cannot be undone.</div>
+      <div style="display:flex;gap:var(--sp-2);justify-content:center">
+        <button class="btn btn--danger" data-action="confirm-yes">Delete</button>
+        <button class="btn btn--ghost" data-action="confirm-no">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-layer" id="modal-schedule">
+  <div class="modal">
+    <div class="modal__head" style="--tone:var(--access)"><span class="modal__title"><svg class="icon"><use href="#icon-clock"/></svg>Schedule a Test</span><button class="btn btn--icon btn--ghost" data-action="close-modal"><svg class="icon"><use href="#icon-x"/></svg></button></div>
+    <div class="modal__body">
+      <div class="picker">
+        <input type="text" id="scheduleScpSearch" placeholder="Search SCP number or name…" autocomplete="off">
+        <div class="picker-drop hidden" id="scheduleAutocomplete"></div>
+      </div>
+      <div id="scheduleSelectedInfo" style="margin:var(--sp-3) 0"></div>
+      <div class="field-grid field-grid--2">
+        <div class="field"><label class="field__label" for="scheduleDateTime">Test Window</label><input type="datetime-local" id="scheduleDateTime"></div>
+        <div class="field"><label class="field__label" for="scheduleRecurrence">Recurrence</label>
+          <select id="scheduleRecurrence">
+            <option value="once">Once</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+          </select>
+        </div>
+      </div>
+      <hr class="hr">
+      <div class="field-grid field-grid--4">
+        <div class="field"><label class="field__label" style="color:var(--cd)">CD</label><input type="number" id="scheduleCd" value="1" min="0" max="99"></div>
+        <div class="field"><label class="field__label" style="color:var(--sd)">SD</label><input type="number" id="scheduleSd" value="2" min="0" max="99"></div>
+        <div class="field"><label class="field__label" style="color:var(--mtf)">MTF</label><input type="number" id="scheduleMtf" value="2" min="0" max="99"></div>
+        <div class="field"><label class="field__label" style="color:var(--rrt)">RRT</label><input type="number" id="scheduleRrt" value="0" min="0" max="99"></div>
+      </div>
+      <hr class="hr">
+      <div class="field"><label class="field__label" for="scheduleNotes">Notes</label><textarea id="scheduleNotes" rows="2" placeholder="Purpose of this test window…"></textarea></div>
+    </div>
+    <div class="modal__foot">
+      <button class="btn btn--primary" data-action="submit-schedule"><svg class="icon icon--sm"><use href="#icon-clock"/></svg>Schedule Test</button>
+      <button class="btn btn--ghost" data-action="close-modal">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-layer" id="modal-schedule-list">
+  <div class="modal modal--wide">
+    <div class="modal__head" style="--tone:var(--access)"><span class="modal__title"><svg class="icon"><use href="#icon-clock"/></svg>Scheduled Tests</span><button class="btn btn--icon btn--ghost" data-action="close-modal"><svg class="icon"><use href="#icon-x"/></svg></button></div>
+    <div class="modal__body">
+      <div id="scheduleListBody"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Toasts ══════════════════════════════════════════════════════════════ -->
+<div class="toast-stack" id="toastStack"></div>
+
+<!-- ═══ Main shell ══════════════════════════════════════════════════════════ -->
+<main id="shell">
+
+  <!-- ─── Login ──────────────────────────────────────────────────────────── -->
+  <section class="view is-active" id="view-login">
+    <div class="login-shell">
+      <div class="login-card">
+        <div class="login-card__brand">
+          <div class="brand-mark" style="width:52px;height:52px;font-size:24px">☣</div>
+          <div class="login-card__title">SSRP ACCESS TERMINAL</div>
+          <div class="login-card__sub">Present credentials to open a site session</div>
+        </div>
+        <div class="field" style="margin-bottom:var(--sp-4)">
+          <label class="field__label" for="loginName">Full Name / Designation</label>
+          <input type="text" id="loginName" placeholder="Dr. Surname, or unit callsign" autocomplete="off">
+        </div>
+        <div class="field" style="margin-bottom:var(--sp-5)">
+          <label class="field__label">Foundation Role</label>
+          <div class="role-grid" id="loginRoleGrid"></div>
+        </div>
+        <button class="btn btn--primary btn--block" data-action="submit-login" id="loginSubmitBtn" disabled>
+          <svg class="icon icon--sm"><use href="#icon-shield"/></svg>Open Session
+        </button>
+        <div class="login-card__error hidden" id="loginError"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Dashboard ─────────────────────────────────────────────────────── -->
+  <section class="view" id="view-dashboard">
+    <div class="stat-rail">
+      <div class="stat-tile" style="--tone:var(--access)"><span class="stat-tile__value" id="statTotal">0</span><span class="stat-tile__label">Total Logs</span></div>
+      <div class="stat-tile" style="--tone:var(--clear)"><span class="stat-tile__value" id="statSuccess">0%</span><span class="stat-tile__label">Success Rate</span></div>
+      <div class="stat-tile" style="--tone:var(--signal)"><span class="stat-tile__value" id="statBreaches">0</span><span class="stat-tile__label">Active Breaches</span></div>
+      <div class="stat-tile" style="--tone:var(--caution)"><span class="stat-tile__value" id="statSurvival">0%</span><span class="stat-tile__label">Avg. Survival</span></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="toolbar__field search-field" style="flex:1 1 220px">
+        <svg class="icon icon--sm"><use href="#icon-search"/></svg>
+        <input type="search" id="filterSearch" placeholder="Search SCP or researcher… (/)">
+      </div>
+      <select id="filterStatus" class="toolbar__field">
+        <option value="">All Statuses</option>
+        <option value="Success">Success</option>
+        <option value="Aborted">Aborted</option>
+        <option value="Failed">Failed</option>
+      </select>
+      <select id="filterClass" class="toolbar__field">
+        <option value="">All Classes</option>
+        <option value="safe">Safe</option>
+        <option value="euclid">Euclid</option>
+        <option value="keter">Keter</option>
+      </select>
+      <select id="filterAlarm" class="toolbar__field">
+        <option value="">Any Alarm</option>
+        <option value="Breach">Breach</option>
+        <option value="Site Lockdown">Site Lockdown</option>
+        <option value="Chaos Insurgency">Chaos Insurgency</option>
+      </select>
+      <label class="chip-toggle" id="breachOnlyChip">
+        <input type="checkbox" id="filterBreachOnly">
+        <svg class="icon icon--sm"><use href="#icon-alert-triangle"/></svg><span>Breaches</span>
+      </label>
+      <select id="sortLogs" class="toolbar__field">
+        <option value="newest">Newest First</option>
+        <option value="oldest">Oldest First</option>
+        <option value="survival-desc">Survival: High → Low</option>
+        <option value="survival-asc">Survival: Low → High</option>
+      </select>
+      <span class="spacer"></span>
+      <span class="result-count" id="resultCount">0 entries</span>
+    </div>
+
+    <div class="grid" id="logGrid"></div>
+  </section>
+
+  <!-- ─── Create / Edit form ────────────────────────────────────────────── -->
+  <section class="view" id="view-form">
+    <div class="form-header">
+      <button class="btn btn--ghost btn--sm" data-action="go-dashboard"><svg class="icon icon--sm"><use href="#icon-chevron-left"/></svg>Back</button>
+      <span class="form-header__title" id="formTitle">New Test Log</span>
+      <button class="btn btn--ghost btn--sm" data-action="save-draft"><svg class="icon icon--sm"><use href="#icon-save"/></svg>Save Draft</button>
+    </div>
+
+    <div class="form-shell">
+      <nav class="form-nav" id="formNav">
+        <div class="form-nav__item is-active" data-action="nav-jump" data-target="#sec-subject"><span class="form-nav__num">0</span>Subject</div>
+        <div class="form-nav__item" data-action="nav-jump" data-target="#sec-config"><span class="form-nav__num">1</span>Config</div>
+        <div class="form-nav__item" data-action="nav-jump" data-target="#sec-personnel"><span class="form-nav__num">2</span>Personnel</div>
+        <div class="form-nav__item" data-action="nav-jump" data-target="#sec-live"><span class="form-nav__num">3</span>Live Control</div>
+        <div class="form-nav__item" data-action="nav-jump" data-target="#sec-timeline"><span class="form-nav__num">4</span>Timeline</div>
+        <div class="form-nav__item" data-action="nav-jump" data-target="#sec-casualties"><span class="form-nav__num">5</span>Casualties</div>
+        <div class="form-nav__item" data-action="nav-jump" data-target="#sec-status"><span class="form-nav__num">6</span>Status</div>
+      </nav>
+
+      <div class="form-panels">
+
+        <div class="panel" id="sec-subject">
+          <div class="panel__head"><span class="panel__num">0</span><span class="panel__title">SCP Subject</span><span class="panel__aside" id="scpClassDisplay"></span></div>
+          <div class="panel__body">
+            <div class="picker">
+              <input type="text" id="scpSearchInput" placeholder="Search SCP number or name…" autocomplete="off">
+              <div class="picker-drop hidden" id="scpAutocomplete"></div>
+            </div>
+            <div id="scpIdentityBlock" style="margin-top:var(--sp-4)"></div>
+
+            <hr class="hr">
+            <label class="field__label" style="display:block;margin-bottom:var(--sp-3)">Cross-Test Subjects (optional)</label>
+            <div class="picker">
+              <input type="text" id="crossScpSearch" placeholder="Add another SCP to test concurrently…" autocomplete="off">
+              <div class="picker-drop hidden" id="crossScpAutocomplete"></div>
+            </div>
+            <div class="chip-list" id="crossScpChips"></div>
+            <div id="crossContaminationWarnings" class="cross-warning-list"></div>
+
+            <hr class="hr">
+            <label class="field__label" style="display:block;margin-bottom:var(--sp-3)">Access Control</label>
+            <div class="field-grid field-grid--2">
+              <div class="field">
+                <label class="field__label">Required Clearance to View</label>
+                <select id="fViewClearance"></select>
+              </div>
+              <div class="field">
+                <label class="field__label">Grant Access to Role(s)</label>
+                <button type="button" class="btn btn--sm btn--block" data-action="toggle-role-override-menu" id="roleOverrideToggle">Select roles…</button>
+              </div>
+            </div>
+            <div class="role-override-grid hidden" id="roleOverrideGrid"></div>
+          </div>
+        </div>
+
+        <div class="panel" id="sec-config">
+          <div class="panel__head"><span class="panel__num">1</span><span class="panel__title">Pre-Start Configuration</span></div>
+          <div class="panel__body">
+            <div class="field">
+              <label class="field__label">Subject Clearance Level</label>
+              <div class="clearance" id="clearanceBar"></div>
+            </div>
+            <hr class="hr">
+            <label class="field__label" style="display:block;margin-bottom:var(--sp-3)">Special Equipment</label>
+            <div class="check-grid">
+              <label class="check-item"><input type="checkbox" id="fScramblers"><div class="check-box"></div><span class="check-item__label">📡 Scramblers</span></label>
+              <label class="check-item"><input type="checkbox" id="fBag"><div class="check-box"></div><span class="check-item__label">👜 Containment Bag</span></label>
+              <label class="check-item"><input type="checkbox" id="fLavender"><div class="check-box"></div><span class="check-item__label">💜 Lavender</span></label>
+              <label class="check-item"><input type="checkbox" id="fCage"><div class="check-box"></div><span class="check-item__label">🔒 Cage Required</span></label>
+            </div>
+            <hr class="hr">
+            <label class="field__label" style="display:block;margin-bottom:var(--sp-3)">Starting Alert State</label>
+            <div id="startAlertRows"></div>
+          </div>
+        </div>
+
+        <div class="panel" id="sec-personnel">
+          <div class="panel__head"><span class="panel__num">2</span><span class="panel__title">Personnel &amp; Researcher</span></div>
+          <div class="panel__body">
+            <div class="field-grid field-grid--2">
+              <div class="field"><label class="field__label" for="fResearcher">Researcher Name</label><input type="text" id="fResearcher" placeholder="Dr. Surname"></div>
+              <div class="field"><label class="field__label" for="fRank">Rank / Title</label><input type="text" id="fRank" placeholder="Senior Researcher"></div>
+            </div>
+            <hr class="hr">
+            <div class="field-grid field-grid--4">
+              <div class="field"><label class="field__label" style="color:var(--cd)">Class-D (CD)</label>
+                <div class="num-field">
+                  <input type="number" id="fCd" value="1" min="0" max="99">
+                  <div class="num-stepper"><button type="button" class="num-stepper__btn" data-action="num-step" data-target="fCd" data-dir="1" aria-label="Increase"><svg class="icon icon--flip"><use href="#icon-chevron-down"/></svg></button><button type="button" class="num-stepper__btn" data-action="num-step" data-target="fCd" data-dir="-1" aria-label="Decrease"><svg class="icon"><use href="#icon-chevron-down"/></svg></button></div>
+                </div>
+              </div>
+              <div class="field"><label class="field__label" style="color:var(--sd)">Security (SD)</label>
+                <div class="num-field">
+                  <input type="number" id="fSd" value="2" min="0" max="99">
+                  <div class="num-stepper"><button type="button" class="num-stepper__btn" data-action="num-step" data-target="fSd" data-dir="1" aria-label="Increase"><svg class="icon icon--flip"><use href="#icon-chevron-down"/></svg></button><button type="button" class="num-stepper__btn" data-action="num-step" data-target="fSd" data-dir="-1" aria-label="Decrease"><svg class="icon"><use href="#icon-chevron-down"/></svg></button></div>
+                </div>
+              </div>
+              <div class="field"><label class="field__label" style="color:var(--mtf)">MTF</label>
+                <div class="num-field">
+                  <input type="number" id="fMtf" value="2" min="0" max="99">
+                  <div class="num-stepper"><button type="button" class="num-stepper__btn" data-action="num-step" data-target="fMtf" data-dir="1" aria-label="Increase"><svg class="icon icon--flip"><use href="#icon-chevron-down"/></svg></button><button type="button" class="num-stepper__btn" data-action="num-step" data-target="fMtf" data-dir="-1" aria-label="Decrease"><svg class="icon"><use href="#icon-chevron-down"/></svg></button></div>
+                </div>
+              </div>
+              <div class="field"><label class="field__label" style="color:var(--rrt)">RRT</label>
+                <div class="num-field">
+                  <input type="number" id="fRrt" value="0" min="0" max="99">
+                  <div class="num-stepper"><button type="button" class="num-stepper__btn" data-action="num-step" data-target="fRrt" data-dir="1" aria-label="Increase"><svg class="icon icon--flip"><use href="#icon-chevron-down"/></svg></button><button type="button" class="num-stepper__btn" data-action="num-step" data-target="fRrt" data-dir="-1" aria-label="Decrease"><svg class="icon"><use href="#icon-chevron-down"/></svg></button></div>
+                </div>
+              </div>
+            </div>
+            <hr class="hr">
+            <div class="switch-row">
+              <label class="switch"><input type="checkbox" id="fEthics"><div class="switch__track"></div></label>
+              <span class="switch-row__label">Ethics Committee Observer Present</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" id="sec-live">
+          <div class="panel__head">
+            <span class="panel__num">3</span><span class="panel__title">Live Test Control</span>
+            <span class="panel__aside" style="display:flex;gap:6px">
+              <button class="btn btn--primary btn--sm" id="btnStartTest" data-action="start-timer"><svg class="icon icon--sm"><use href="#icon-plus"/></svg>Start Test</button>
+              <button class="btn btn--danger btn--sm hidden" id="btnStopTest" data-action="stop-timer"><svg class="icon icon--sm"><use href="#icon-x"/></svg>Stop Test</button>
+            </span>
+          </div>
+          <div class="panel__body">
+            <div class="timer-block">
+              <div class="timer-display" id="timerDisplay">00:00</div>
+              <div class="timer-meta">
+                <div class="timer-meta__status" id="timerStatus">AWAITING START</div>
+                <div id="timerStartedAt"></div>
+              </div>
+            </div>
+            <div class="live-panel" id="livePanel">
+              <div class="live-panel__title"><span class="live-dot is-idle" id="liveDot"></span><span id="liveStatusText">Changes auto-log once the test is running</span></div>
+              <div id="liveAlertRows"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" id="sec-timeline">
+          <div class="panel__head"><span class="panel__num">4</span><span class="panel__title">Timeline Events</span></div>
+          <div class="panel__body">
+            <div class="tl-btn-grid" id="timelineButtons"></div>
+            <hr class="hr">
+            <div class="manual-row">
+              <input type="text" id="fManualEntry" placeholder="Enter manual log entry…">
+              <button class="btn btn--sm" data-action="add-manual"><svg class="icon icon--sm"><use href="#icon-plus"/></svg>Log</button>
+            </div>
+            <div class="feed" id="activityFeed"></div>
+          </div>
+        </div>
+
+        <div class="panel" id="sec-casualties">
+          <div class="panel__head"><span class="panel__num">5</span><span class="panel__title">Casualties &amp; Performance</span></div>
+          <div class="panel__body">
+            <div class="casualty-row">
+              <div class="casualty-row__label"><span><span style="color:var(--text-dim)">CD</span> — Terminated by Security</span><span class="casualty-row__cap" id="capSecUsed">0 / 0</span></div>
+              <div id="segTermSec"></div>
+            </div>
+            <div class="casualty-row">
+              <div class="casualty-row__label"><span><span style="color:var(--text-dim)">CD</span> — Killed by SCP</span><span class="casualty-row__cap" id="capScpUsed">0 / 0</span></div>
+              <div id="segTermScp"></div>
+            </div>
+            <div class="casualty-row">
+              <div class="casualty-row__label"><span>Personnel Lost (SD/MTF/RRT)</span><span class="casualty-row__cap" id="capPersMax">0 / 0</span></div>
+              <div id="segPersonnelLost"></div>
+            </div>
+            <div class="survival-meter">
+              <div class="survival-meter__row"><label class="field__label">Survival Rate</label><span class="survival-meter__pct" id="survivalPct">100%</span></div>
+              <div class="survival-meter__track"><div class="survival-meter__fill" id="survivalBar" style="width:100%;background:var(--clear)"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" id="sec-status">
+          <div class="panel__head"><span class="panel__num">6</span><span class="panel__title">Final Status &amp; Signature</span></div>
+          <div class="panel__body">
+            <label class="field__label" style="display:block;margin-bottom:var(--sp-3)">Final Test Status</label>
+            <div id="finalStatusBar"></div>
+            <div class="substatus-block hidden" id="subStatusSection">
+              <label class="field__label" style="display:block;margin-bottom:var(--sp-2)">Sub-status / Reason</label>
+              <div id="subStatusBar"></div>
+            </div>
+            <hr class="hr">
+            <div class="field"><label class="field__label" for="fNotes">Additional Notes</label><textarea id="fNotes" rows="4" placeholder="Optional observations, anomalous behavior, debrief…"></textarea></div>
+            <hr class="hr">
+            <div class="sig-block" id="sigBlock"><span style="color:var(--text-dim)">—</span></div>
+            <div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-4)">
+              <button class="btn btn--primary" data-action="submit-log"><svg class="icon icon--sm"><use href="#icon-check-circle"/></svg>Submit Test Log</button>
+              <button class="btn btn--ghost" data-action="go-dashboard">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Detail / Report ───────────────────────────────────────────────── -->
+  <section class="view" id="view-detail">
+    <div class="report-toolbar">
+      <button class="btn btn--ghost btn--sm" data-action="go-dashboard"><svg class="icon icon--sm"><use href="#icon-chevron-left"/></svg>Back</button>
+      <div class="report-toolbar__actions">
+        <button class="btn btn--sm" data-action="copy-current"><svg class="icon icon--sm"><use href="#icon-copy"/></svg>Copy ID</button>
+        <button class="btn btn--sm" data-action="pdf-current"><svg class="icon icon--sm"><use href="#icon-download"/></svg>PDF Report</button>
+        <button class="btn btn--sm" data-action="export-current"><svg class="icon icon--sm"><use href="#icon-download"/></svg>Export</button>
+        <button class="btn btn--sm" data-action="edit-current"><svg class="icon icon--sm"><use href="#icon-edit"/></svg>Edit</button>
+        <button class="btn btn--danger btn--sm" data-action="delete-current"><svg class="icon icon--sm"><use href="#icon-trash"/></svg>Delete</button>
+      </div>
+    </div>
+    <div id="detailContent"></div>
+  </section>
+
+  <!-- ─── Containment Status Board ──────────────────────────────────────── -->
+  <section class="view" id="view-board">
+    <div class="form-header">
+      <button class="btn btn--ghost btn--sm" data-action="go-dashboard"><svg class="icon icon--sm"><use href="#icon-chevron-left"/></svg>Back</button>
+      <span class="form-header__title">Containment Status Board</span>
+      <span class="result-count" id="boardResultCount">0 subjects</span>
+    </div>
+    <div class="toolbar">
+      <div class="toolbar__field search-field" style="flex:1 1 220px">
+        <svg class="icon icon--sm"><use href="#icon-search"/></svg>
+        <input type="search" id="boardSearch" placeholder="Search SCP…">
+      </div>
+      <select id="boardStatusFilter" class="toolbar__field">
+        <option value="">All States</option>
+        <option value="secure">Secure</option>
+        <option value="investigation">Under Investigation</option>
+        <option value="breached">Breached</option>
+      </select>
+    </div>
+    <div class="grid" id="boardGrid"></div>
+  </section>
+
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

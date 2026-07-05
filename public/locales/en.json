@@ -1,0 +1,246 @@
+{
+    "app": {
+        "title": "☣ SSRP — Site Security Reporting Platform"
+    },
+
+    "nav": {
+        "new_log": "New Log",
+        "ops_console": "Ops Console"
+    },
+
+    "drawer": {
+        "title": "Ops Console",
+        "group_emergency": "Emergency",
+        "group_levels": "Site Levels",
+        "group_broadcast": "Broadcast & Ordnance",
+        "group_data": "Data",
+        "breach": "Log Containment Breach",
+        "cdc_riot": "Class-D Riot",
+        "breach_end": "End Breach",
+        "alarm": "Set Alarm State",
+        "threat": "Set Threat Level",
+        "cdc": "Set CDC Status",
+        "broadcast": "Site-Wide Broadcast",
+        "nuke": "Warhead Control",
+        "import": "Import Markdown Log"
+    },
+
+    "modal": {
+        "import_title": "Import Markdown Log",
+        "import_desc": "Paste a YAML-frontmatter markdown log. Logs with matching IDs will be overwritten.",
+        "import_submit": "Import Log",
+        "cancel": "Cancel",
+        "close": "Close",
+        "breach_title": "Containment Breach",
+        "breach_submit": "Log Breach",
+        "breach_end_title": "Terminate Breach",
+        "breach_end_desc": "Select an active breach to mark as terminated:",
+        "broadcast_title": "Site-Wide Broadcast",
+        "broadcast_label": "Broadcast Content",
+        "broadcast_placeholder": "Enter the broadcast message…",
+        "broadcast_submit": "Log Broadcast",
+        "nuke_title": "Warhead Control",
+        "alarm_title": "Alarm State Control",
+        "alarm_desc": "Select an alarm state to log and broadcast site-wide.",
+        "threat_title": "Threat Level Control",
+        "threat_desc": "Select a threat level to log and broadcast site-wide.",
+        "cdc_title": "CDC Status Control",
+        "cdc_desc": "Select a CDC status to log and broadcast site-wide.",
+        "termination_title": "Casualty Confirmation",
+        "termination_desc": "This log records personnel casualties. Each loss below will be permanently appended to the audit trail as an individual, timestamped entry.",
+        "termination_reason": "Reason for Termination / Death (optional)",
+        "termination_confirm": "Confirm and Send"
+    },
+
+    "toolbar": {
+        "search_placeholder": "Search SCP or researcher… (/)",
+        "all_statuses": "All Statuses",
+        "all_classes": "All Classes",
+        "any_alarm": "Any Alarm",
+        "breaches": "Breaches",
+        "sort_newest": "Newest First",
+        "sort_oldest": "Oldest First",
+        "sort_surv_desc": "Survival: High → Low",
+        "sort_surv_asc": "Survival: Low → High"
+    },
+
+    "stats": {
+        "total": "Total Logs",
+        "success": "Success Rate",
+        "breaches": "Active Breaches",
+        "survival": "Avg. Survival"
+    },
+
+    "dashboard": {
+        "results": "{count} entries",
+        "empty_title": "No records yet",
+        "empty_hint": "Test logs and facility events will appear here once logged.",
+        "empty_title_filtered": "No matches",
+        "empty_hint_filtered": "No records match the current filters. Try clearing one.",
+        "no_entries": "No events logged."
+    },
+
+    "form": {
+        "new_title": "New Test Log",
+        "edit_title": "Edit Test Log",
+        "back": "Back",
+        "save_draft": "Save Draft"
+    },
+
+    "panel": {
+        "subject": "SCP Subject",
+        "config": "Pre-Start Configuration",
+        "personnel": "Personnel & Researcher",
+        "live": "Live Test Control",
+        "timeline": "Timeline Events",
+        "casualties": "Casualties & Performance",
+        "status": "Final Status & Signature"
+    },
+
+    "field": {
+        "clearance": "Clearance",
+        "equipment": "Special Equipment",
+        "starting_alert": "Starting Alert State",
+        "researcher_name": "Researcher Name",
+        "researcher_placeholder": "Dr. Surname",
+        "rank": "Rank / Title",
+        "rank_placeholder": "Senior Researcher",
+        "ethics": "Ethics Observer",
+        "alarm_level": "Alarm Level",
+        "threat_level": "Threat Level",
+        "cdc_alert": "CDC Alert"
+    },
+
+    "live": {
+        "start_test": "Start Test",
+        "stop_test": "Stop Test",
+        "resume_test": "Resume",
+        "awaiting": "AWAITING START",
+        "in_progress": "TEST IN PROGRESS",
+        "stopped": "TEST STOPPED",
+        "idle_hint": "Changes auto-log once the test is running",
+        "active_hint": "LIVE — changes are being logged",
+        "started_at": "Started:"
+    },
+
+    "timeline": {
+        "test_started": "Test started",
+        "test_stopped": "Test stopped",
+        "moved_into_c1": "Moved into C1",
+        "moved_into_c2": "Moved into C2",
+        "moved_into_cx": "Moved into CX",
+        "moved_into_lcx": "Moved into LCX",
+        "entered_chamber": "Entered chamber",
+        "test_done": "Test done",
+        "manual_placeholder": "Enter manual log entry…",
+        "log_btn": "Log",
+        "changed": "{field} CHANGED: {value}",
+        "termed_security": "CD TERMINATED BY SECURITY (total: {val})",
+        "termed_scp": "CD KILLED BY SCP (total: {val})"
+    },
+
+    "casualties": {
+        "terminated": "Terminated by Security",
+        "killed_scp": "Killed by SCP",
+        "personnel_lost": "Personnel Lost (SD/MTF/RRT)",
+        "personnel_lost_short": "Personnel Lost",
+        "survival_rate": "Survival Rate"
+    },
+
+    "status": {
+        "final_status": "Final Test Status",
+        "sub_status": "Sub-status / Reason",
+        "notes": "Notes",
+        "notes_placeholder": "Optional observations, anomalous behavior, debrief…",
+        "submit": "Submit Test Log",
+        "cancel": "Cancel"
+    },
+
+    "alerts": {
+        "none": "None",
+        "cd_alarm": "Class-D",
+        "ci_alarm": "Chaos Insurgency",
+        "breach": "Breach",
+        "lockdown": "Site Lockdown",
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High",
+        "unknown": "Unknown",
+        "on": "On",
+        "off": "Off"
+    },
+
+    "statuses": {
+        "success": "Success",
+        "aborted": "Aborted",
+        "failed": "Failed",
+        "unknown": "Unknown"
+    },
+
+    "substatus": {
+        "CD back to CDC": "CD back to CDC",
+        "CD Terminated": "CD Terminated",
+        "Other": "Other",
+        "Site Alarm": "Site Alarm",
+        "Other Breach": "Other Breach",
+        "Security Risk": "Security Risk",
+        "Technical Failure": "Technical Failure",
+        "Inactivity": "Inactivity",
+        "SCP Breach": "SCP Breach",
+        "All Personnel Died": "All Personnel Died",
+        "Researcher Died": "Researcher Died",
+        "Useless Test Data": "Useless Test Data"
+    },
+
+    "nuke": {
+        "initialized": "Nuke Initialized",
+        "surface_sealed": "Surface Gate Sealed",
+        "exploded": "Nuke Exploded",
+        "autonuke": "610 Autonuke"
+    },
+
+    "detail": {
+        "sector": "Sector",
+        "clearance": "Clearance",
+        "alert_state": "Alert State",
+        "survival_short": "Surv.",
+        "no_events": "No events recorded.",
+        "no_active_breaches": "No active breaches."
+    },
+
+    "confirm": {
+        "delete_log_msg": "Delete this test log?",
+        "delete_log_sub": "This will permanently remove the log and its markdown file.",
+        "delete_event_msg": "Delete this facility event?",
+        "delete_event_sub": "Linked breach/termination records will be removed together."
+    },
+
+    "toasts": {
+        "entry_logged": "Entry logged",
+        "log_updated": "Log updated",
+        "log_submitted": "Test log submitted",
+        "log_deleted": "Log deleted",
+        "draft_saved": "Draft saved",
+        "select_scp": "Select an SCP subject first.",
+        "enter_name": "Enter researcher name.",
+        "import_pasted": "Paste a markdown log first.",
+        "log_imported": "Log imported",
+        "breach_logged": "Breach logged and site alerted!",
+        "breach_ended": "Breach ended and site alerted!",
+        "nuke_logged": "Nuclear warhead event logged!",
+        "broadcast_logged": "Broadcast logged!",
+        "broadcast_placeholder": "Enter the broadcast message first.",
+        "cdc_riot_logged": "CDC Riot logged and site alerted!",
+        "event_deleted": "Event deleted",
+        "server_error": "Failed to connect to server.",
+        "id_copied": "Log ID copied to clipboard"
+    },
+
+    "fault": {
+        "title": "CORE CONNECTION FAULT",
+        "text": "The console can't reach the facility database. Confirm the server is running and reachable.",
+        "retry": "Retry Connection",
+        "dismiss": "Dismiss",
+        "advanced": "Advanced Options"
+    }
+}

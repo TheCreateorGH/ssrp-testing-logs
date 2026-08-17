@@ -53,27 +53,16 @@ const TIMELINE_GROUPS = [
         events: ['Mass Class-D Riot', 'Chaos Insurgency Incursion', 'MTF Squad Deployed', 'Site-Wide Lockdown Initiated', 'Perimeter Breach Detected', 'Armed Contact Engaged']
     },
     {
+        label: 'Hazard & Biohazard', tone: 'warn',
+        events: ['Code Yellow Biohazard', 'Airborne Contagion Detected', 'Decontamination Protocol Initiated', 'Quarantine Zone Established']
+    },
+    {
         label: 'Ordnance & Evacuation', tone: 'warn',
-        events: ['Warhead Activation Sequence', 'Non-Essential Personnel Withdrawn']
+        events: ['Alpha Warhead Activation Sequence', 'Site Evacuation Ordered', 'Non-Essential Personnel Withdrawn']
     },
     {
         label: 'Anomalous Activity', tone: 'danger',
-        events: [
-            'SCP-173 Blink Protocol Violation',
-            'SCP-096 Emotional Agitation',
-            'SCP-049 Plague Doctor Diagnosis',
-            'SCP-106 Pocket Dimension Drag',
-            'SCP-106 Teleportation',
-            'SCP-076-2 Reanimation & Breach',
-            'SCP-457 Thermodynamic Expansion',
-            'SCP-939 Auditory Mimicry Lure',
-            'SCP-914 Refinement Cycle Started',
-            'SCP-035 Host Possession',
-            'SCP-2521 Test Subject Abduction',
-            'SCP-999 Euphoria Effect Triggered',
-            'SCP-093 Mirror Portal Activation',
-            'SCP-2006 Transformation'
-        ]
+        events: ['SCP-096 Emotional Agitation', 'SCP-049 Plague Doctor Diagnosis', 'SCP-966 Sleep Paralysis Event', 'SCP-914 Refinement Cycle Started', 'SCP-682 Containment Failure', 'SCP-173 Blink Protocol Violation']
     }
 ];
 
@@ -328,26 +317,38 @@ const MUTATING_METHODS = new Set(['POST', 'PUT', 'DELETE']);
 const SESSION_STORAGE_KEY = 'ssrp_session';
 
 const Session = {
-    token: null, name: null, roleCode: null, roleName: null, clearance: 0,
+    token: null, userId: null, username: null, name: null,
+    roleCode: null, roleName: null, clearance: 0, mustChangePassword: false,
+    _rememberMe: false,
 
     isActive() { return !!this.token; },
+    isAdmin() { return this.roleCode === 'ADMIN'; },
 
-    set(session) {
+    /** Remember Me decides where the token lives: localStorage survives
+     *  a full browser restart, sessionStorage only survives reloads
+     *  within the same tab/session (cleared when the browser closes). */
+    set(session, rememberMe = false) {
         Object.assign(this, session);
-        try { localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session)); } catch { /* storage may be unavailable (private mode) */ }
+        this._rememberMe = !!rememberMe;
+        const payload = JSON.stringify({ ...session, _rememberMe: this._rememberMe });
+        try {
+            if (rememberMe) { localStorage.setItem(SESSION_STORAGE_KEY, payload); sessionStorage.removeItem(SESSION_STORAGE_KEY); }
+            else { sessionStorage.setItem(SESSION_STORAGE_KEY, payload); localStorage.removeItem(SESSION_STORAGE_KEY); }
+        } catch { /* storage may be unavailable (private mode) */ }
     },
 
     loadPersisted() {
         try {
-            const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+            const raw = sessionStorage.getItem(SESSION_STORAGE_KEY) || localStorage.getItem(SESSION_STORAGE_KEY);
             if (raw) { Object.assign(this, JSON.parse(raw)); return true; }
         } catch { /* ignore malformed/unavailable storage */ }
         return false;
     },
 
     clear() {
-        this.token = null; this.name = null; this.roleCode = null; this.roleName = null; this.clearance = 0;
-        try { localStorage.removeItem(SESSION_STORAGE_KEY); } catch { /* ignore */ }
+        this.token = null; this.userId = null; this.username = null; this.name = null;
+        this.roleCode = null; this.roleName = null; this.clearance = 0; this.mustChangePassword = false;
+        try { localStorage.removeItem(SESSION_STORAGE_KEY); sessionStorage.removeItem(SESSION_STORAGE_KEY); } catch { /* ignore */ }
     },
 
     /** Called when the server rejects our token (expired/invalid) —
@@ -526,7 +527,21 @@ const Api = {
     createSchedule: payload => Api.req('POST', '/api/schedules', payload),
     deleteSchedule: id => Api.req('DELETE', `/api/schedules/${id}`),
 
-    assessCrossTest: scps => Api.req('POST', '/api/cross-test/assess', { scps }, { skipQueue: true })
+    assessCrossTest: scps => Api.req('POST', '/api/cross-test/assess', { scps }, { skipQueue: true }),
+
+    register: (username, password, displayName) => Api.req('POST', '/api/auth/register', { username, password, displayName }, { skipQueue: true }),
+    changePassword: (oldPassword, newPassword) => Api.req('POST', '/api/auth/change-password', { oldPassword, newPassword }, { skipQueue: true }),
+
+    adminListUsers: () => Api.req('GET', '/api/admin/users', undefined, { skipQueue: true }),
+    adminUpdateUser: (id, payload) => Api.req('PUT', `/api/admin/users/${id}`, payload, { skipQueue: true }),
+    adminResetPassword: id => Api.req('POST', `/api/admin/users/${id}/reset-password`, undefined, { skipQueue: true }),
+    adminDeleteUser: id => Api.req('DELETE', `/api/admin/users/${id}`, undefined, { skipQueue: true }),
+
+    listLogSessions: () => Api.req('GET', '/api/log-sessions', undefined, { skipQueue: true }),
+    createLogSession: () => Api.req('POST', '/api/log-sessions'),
+
+    getContainmentOverrides: () => Api.req('GET', '/api/containment', undefined, { skipQueue: true }),
+    setContainmentStatus: (scp, status) => Api.req('PUT', `/api/containment/${scp}`, { status })
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -965,9 +980,26 @@ const StatusStrip = {
     },
 
     syncAll() {
-        this.update('alarm', S.w.currentAlarmLevel);
-        this.update('threat', S.w.currentThreatLevel);
-        this.update('cdc', S.w.currentCDCAlert);
+        const latestOf = type => S.events
+            .filter(e => e.type === type)
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0] || null;
+        const extractQuoted = status => { const m = status && status.match(/'([^']+)'/); return m ? m[1] : null; };
+
+        const alarmEv = latestOf('ALARM');
+        const threatEv = latestOf('THREAT');
+        const cdcEv = latestOf('CDC');
+
+        const alarmVal = alarmEv ? (extractQuoted(alarmEv.status) || 'None') : 'None';
+        const threatVal = threatEv ? (extractQuoted(threatEv.status) || 'Low') : 'Low';
+        const cdcVal = cdcEv ? cdcEv.status : 'Unknown';
+
+        S.w.currentAlarmLevel = alarmVal;
+        S.w.currentThreatLevel = threatVal;
+        S.w.currentCDCAlert = cdcVal;
+
+        this.update('alarm', alarmVal);
+        this.update('threat', threatVal);
+        this.update('cdc', cdcVal);
     },
 
     startClock() {
@@ -1507,9 +1539,10 @@ const Dashboard = {
         return combined;
     },
 
-    render() {
+    async render() {
         this.computeStats();
         OpsConsole.refreshBreachIndicator();
+        await FacilitySession.load();
 
         const combined = this._filtered();
         document.getElementById('resultCount').textContent = I18n.t('dashboard.results', { count: combined.length });
@@ -1525,7 +1558,39 @@ const Dashboard = {
       </div>`;
             return;
         }
-        grid.innerHTML = combined.map(item => item._type === 'log' ? this._logCard(item) : this._eventCard(item)).join('');
+
+        const groups = {};
+        combined.forEach(item => {
+            const sid = item.sessionId || '__none__';
+            (groups[sid] = groups[sid] || []).push(item);
+        });
+
+        const collapsed = FacilitySession.getCollapsed();
+        const sessionMeta = new Map(FacilitySession.list.map(s => [s.id, s]));
+        const orderedIds = Object.keys(groups).sort((a, b) => {
+            if (a === '__none__') return 1;
+            if (b === '__none__') return -1;
+            const sa = sessionMeta.get(a), sb = sessionMeta.get(b);
+            if (sa?.active && !sb?.active) return -1;
+            if (sb?.active && !sa?.active) return 1;
+            return new Date(sb?.createdAt || 0) - new Date(sa?.createdAt || 0);
+        });
+
+        grid.innerHTML = orderedIds.map(sid => {
+            const meta = sessionMeta.get(sid);
+            const items = groups[sid];
+            const label = meta ? meta.label : 'Unassigned (legacy)';
+            const isCollapsed = collapsed.has(sid);
+            return `<div class="session-group${isCollapsed ? ' is-collapsed' : ''}" data-session-id="${escHtml(sid)}">
+        <div class="session-group__head" data-action="toggle-session-group" data-session-id="${escHtml(sid)}">
+          <svg class="icon icon--sm session-group__chevron"><use href="#icon-chevron-down"/></svg>
+          <span class="session-group__title">${escHtml(label)}</span>
+          ${meta?.active ? '<span class="session-group__active-tag">Active</span>' : ''}
+          <span class="session-group__meta">${items.length} entries${meta ? ' · started ' + formatRelative(meta.createdAt) : ''}</span>
+        </div>
+        <div class="grid">${items.map(item => item._type === 'log' ? this._logCard(item) : this._eventCard(item)).join('')}</div>
+      </div>`;
+        }).join('');
     },
 
     _logCard(log) {
@@ -1638,28 +1703,34 @@ const Dashboard = {
    manually tracked — uses the same S.scps roster as every dropdown)
    ═══════════════════════════════════════════════════════════════════════ */
 const ContainmentBoard = {
+    overrides: {},
+
+    async loadOverrides() {
+        try { this.overrides = await Api.getContainmentOverrides(); }
+        catch { this.overrides = {}; }
+    },
+
     computeStatus(scpNum) {
-        const activeBreach = OpsConsole.getActiveBreaches().some(b => String(b.scp) === String(scpNum));
-        if (activeBreach) return 'breached';
+        const override = this.overrides[scpNum];
+
+        const activeBreach = OpsConsole.getActiveBreaches().find(b => String(b.scp) === String(scpNum));
+        if (activeBreach && (!override || new Date(activeBreach.createdAt) > new Date(override.setAt))) return 'breached';
 
         const logsForScp = S.logs
             .filter(l => l.scp === scpNum || (l.crossScps || []).includes(scpNum))
             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        if (logsForScp.length && ['Aborted', 'Failed'].includes(logsForScp[0].finalStatus)) return 'investigation';
+        const latestLog = logsForScp[0];
+        const logSaysInvestigation = latestLog && ['Aborted', 'Failed'].includes(latestLog.finalStatus);
+        if (logSaysInvestigation && (!override || new Date(latestLog.createdAt) > new Date(override.setAt))) return 'investigation';
 
+        if (override) return override.status === 'breached' ? 'breached' : 'secure';
         return 'secure';
     },
 
-    render() {
+    async render() {
+        await this.loadOverrides();
         const search = document.getElementById('boardSearch').value.toLowerCase();
         const statusFilter = document.getElementById('boardStatusFilter').value;
-
-        // Definition der Prioritäten für die Sortierung
-        const statusPriority = {
-            'breached': 1,
-            'investigation': 2,
-            'secure': 3
-        };
 
         const rows = Object.entries(S.scps).map(([num, data]) => ({
             num, data, status: this.computeStatus(num)
@@ -1667,14 +1738,7 @@ const ContainmentBoard = {
             const nameHit = `scp-${r.num} ${r.data.name || ''}`.toLowerCase().includes(search);
             const statusHit = !statusFilter || r.status === statusFilter;
             return nameHit && statusHit;
-        }).sort((a, b) => {
-            // Zuerst nach Status-Priorität sortieren
-            const priorityDiff = statusPriority[a.status] - statusPriority[b.status];
-            if (priorityDiff !== 0) return priorityDiff;
-
-            // Bei gleichem Status nach SCP-Nummer sortieren
-            return a.num.localeCompare(b.num, undefined, { numeric: true, sensitivity: 'base' });
-        });
+        }).sort((a, b) => a.num.localeCompare(b.num));
 
         document.getElementById('boardResultCount').textContent = `${rows.length} subjects`;
 
@@ -1692,7 +1756,147 @@ const ContainmentBoard = {
         </div>
         <div class="containment-card__name">${escHtml(r.data.name || '')}</div>
         <div><span class="containment-status-pill containment-status-pill--${r.status}">${statusLabel[r.status]}</span></div>
+        ${r.status === 'investigation' ? `
+        <div class="containment-card__actions" onclick="event.stopPropagation()">
+          <button class="btn btn--danger btn--xs" data-action="resolve-containment" data-scp="${escHtml(r.num)}" data-status="breached">Breached</button>
+          <button class="btn btn--success btn--xs" data-action="resolve-containment" data-scp="${escHtml(r.num)}" data-status="secure">Fine</button>
+        </div>` : ''}
       </div>`).join('');
+    },
+
+    async resolve(scp, status) {
+        const action = status === 'breached' ? 'BREACH' : 'BREACH_END';
+        if (!Session.canPerform(action)) { denyOpsAction(action); return; }
+        try {
+            await Api.setContainmentStatus(scp, status);
+            Toast.show(`SCP-${scp} marked ${status === 'breached' ? 'Breached' : 'Fine'}`, status === 'breached' ? 'error' : 'success');
+            this.render();
+        } catch { /* toast already shown */ }
+    }
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ADMIN USER DASHBOARD
+   ═══════════════════════════════════════════════════════════════════════ */
+const Admin = {
+    _users: [],
+
+    async render() {
+        try { this._users = await Api.adminListUsers(); }
+        catch { this._users = []; }
+        document.getElementById('adminResultCount').textContent = `${this._users.length} users`;
+
+        const roleOptions = Object.entries(ROLE_CLEARANCE)
+            .map(([code]) => `<option value="${code}">${code}</option>`).join('');
+
+        const table = document.getElementById('adminUserTable');
+        if (!this._users.length) {
+            table.innerHTML = `<div class="empty-state"><svg class="icon"><use href="#icon-inbox"/></svg><div class="empty-state__title">No users</div></div>`;
+            return;
+        }
+        table.innerHTML = `
+      <div class="admin-table-head"><span>User</span><span>Role</span><span>Clearance</span><span>Approved</span><span></span></div>
+      ${this._users.map(u => `
+        <div class="admin-row admin-row--${u.approved ? 'approved' : 'pending'}">
+          <div class="admin-row__user">
+            <span class="admin-row__username">${escHtml(u.username)}</span>
+            <span class="admin-row__name">${escHtml(u.displayName || '')}${u.mustChangePassword ? ' · <span style="color:var(--caution)">pending pw change</span>' : ''}</span>
+          </div>
+          <select class="admin-row__role-select" data-admin-field="role" data-id="${escHtml(u.id)}">
+            <option value="">— none —</option>
+            ${roleOptions}
+          </select>
+          <select class="admin-row__clearance-select" data-admin-field="clearance" data-id="${escHtml(u.id)}">
+            ${[0, 1, 2, 3, 4, 5, 6].map(n => `<option value="${n}">${n}</option>`).join('')}
+          </select>
+          <label class="chip-toggle${u.approved ? ' is-on' : ''}" style="height:32px">
+            <input type="checkbox" data-admin-field="approved" data-id="${escHtml(u.id)}" ${u.approved ? 'checked' : ''}>
+            <span>${u.approved ? 'Approved' : 'Pending'}</span>
+          </label>
+          <div class="admin-row__actions">
+            <button class="btn btn--ghost btn--xs" data-action="admin-reset-password" data-id="${escHtml(u.id)}" title="Reset password"><svg class="icon icon--sm"><use href="#icon-save"/></svg></button>
+            <button class="btn btn--danger btn--xs" data-action="admin-delete-user" data-id="${escHtml(u.id)}" title="Delete account"><svg class="icon icon--sm"><use href="#icon-trash"/></svg></button>
+          </div>
+        </div>`).join('')}
+    `;
+
+        // Pre-select current values (native <select> can't take a "selected" attribute dynamically as cleanly as this)
+        this._users.forEach(u => {
+            const roleSel = table.querySelector(`select[data-admin-field="role"][data-id="${CSS.escape(u.id)}"]`);
+            const clSel = table.querySelector(`select[data-admin-field="clearance"][data-id="${CSS.escape(u.id)}"]`);
+            if (roleSel) roleSel.value = u.roleCode || '';
+            if (clSel) clSel.value = String(u.clearance ?? 0);
+        });
+
+        table.querySelectorAll('[data-admin-field="role"]').forEach(el => el.addEventListener('change', e => this.updateUser(e.target.dataset.id, { roleCode: e.target.value || null })));
+        table.querySelectorAll('[data-admin-field="clearance"]').forEach(el => el.addEventListener('change', e => this.updateUser(e.target.dataset.id, { clearance: parseInt(e.target.value) })));
+        table.querySelectorAll('[data-admin-field="approved"]').forEach(el => el.addEventListener('change', e => this.updateUser(e.target.dataset.id, { approved: e.target.checked })));
+    },
+
+    async updateUser(id, patch) {
+        try {
+            await Api.adminUpdateUser(id, patch);
+            Toast.show('User updated', 'success');
+            this.render();
+        } catch { /* toast already shown */ }
+    },
+
+    async resetPassword(id) {
+        try {
+            const { tempPassword } = await Api.adminResetPassword(id);
+            document.getElementById('tempPasswordDisplay').textContent = tempPassword;
+            Modal.open('temp-password');
+            this.render();
+        } catch { /* toast already shown */ }
+    },
+
+    async deleteUser(id) {
+        const ok = await ConfirmDialog.ask('Delete this user account?', 'This cannot be undone and will end any active session immediately.');
+        if (!ok) return;
+        try {
+            await Api.adminDeleteUser(id);
+            Toast.show('User deleted', 'success');
+            this.render();
+        } catch { /* toast already shown */ }
+    }
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FACILITY SESSIONS  ("Log Sessions" — server-hop reset grouping)
+   ═══════════════════════════════════════════════════════════════════════ */
+const FacilitySession = {
+    _collapsedKey: 'ssrp_collapsed_sessions',
+    list: [],
+
+    async load() {
+        try { this.list = await Api.listLogSessions(); }
+        catch { this.list = []; }
+        return this.list;
+    },
+
+    getCollapsed() {
+        try { return new Set(JSON.parse(localStorage.getItem(this._collapsedKey) || '[]')); }
+        catch { return new Set(); }
+    },
+
+    toggleCollapsed(id) {
+        const set = this.getCollapsed();
+        set.has(id) ? set.delete(id) : set.add(id);
+        try { localStorage.setItem(this._collapsedKey, JSON.stringify([...set])); } catch { /* ignore */ }
+    },
+
+    async startNew() {
+        const ok = await ConfirmDialog.ask(
+            'Start a new facility session?',
+            'Alarm, Threat, and CDC status will reset to defaults. Existing logs are kept, just grouped under the previous session.'
+        );
+        if (!ok) return;
+        try {
+            await Api.createLogSession();
+            Toast.show('New facility session started', 'success');
+            Drawer.close();
+            await Views.showDashboard();
+        } catch { /* toast already shown */ }
     }
 };
 
@@ -1799,33 +2003,33 @@ const Detail = {
           </div>
 
           ${(() => {
-                const audit = (log.manualLogs || []).map(parseAuditEntry).filter(Boolean)
-                    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-                if (!audit.length) return '';
-                const catMeta = {
-                    security: { label: 'Terminated by Security', icon: 'icon-alert-triangle', color: 'var(--sd)' },
-                    scp: { label: 'Killed by SCP', icon: 'icon-alert-triangle', color: 'var(--signal)' },
-                    personnel: { label: 'Personnel Lost', icon: 'icon-alert-triangle', color: 'var(--mtf)' }
-                };
-                return `<div class="report-block">
+            const audit = (log.manualLogs || []).map(parseAuditEntry).filter(Boolean)
+                .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            if (!audit.length) return '';
+            const catMeta = {
+                security: { label: 'Terminated by Security', icon: 'icon-alert-triangle', color: 'var(--sd)' },
+                scp: { label: 'Killed by SCP', icon: 'icon-alert-triangle', color: 'var(--signal)' },
+                personnel: { label: 'Personnel Lost', icon: 'icon-alert-triangle', color: 'var(--mtf)' }
+            };
+            return `<div class="report-block">
               <div class="report-block__head" style="color:var(--signal)">${I18n.t('detail.audit_trail')} <span style="color:var(--text-dim);font-weight:400;text-transform:none;letter-spacing:0">(${audit.length})</span></div>
               <div class="report-block__body" style="padding:var(--sp-3) var(--sp-5)">
                 <div class="audit-list">
                   ${audit.map(a => {
-                    const meta = catMeta[a.category];
-                    const ts = new Date(a.timestamp).toISOString().replace('T', ' ').slice(0, 19);
-                    return `<div class="audit-entry">
+                      const meta = catMeta[a.category];
+                      const ts = new Date(a.timestamp).toISOString().replace('T', ' ').slice(0, 19);
+                      return `<div class="audit-entry">
                         <svg class="icon icon--sm" style="color:${meta.color}"><use href="#${meta.icon}"/></svg>
                         <div class="audit-entry__body">
                           <div class="audit-entry__head"><strong style="color:${meta.color}">${escHtml(meta.label)}</strong><span class="audit-entry__unit">Unit #${a.unitNum}</span><span class="audit-entry__ts">${ts} UTC</span></div>
                           <div class="audit-entry__reason">${a.reason ? escHtml(a.reason) : `<em style="color:var(--text-dim)">${I18n.t('detail.no_reason')}</em>`}</div>
                         </div>
                       </div>`;
-                }).join('')}
+                  }).join('')}
                 </div>
               </div>
             </div>`;
-            })()}
+          })()}
 
           ${(log.crossScps && log.crossScps.length) ? `<div class="report-block">
             <div class="report-block__head">Cross-Test Correlation</div>
@@ -2273,6 +2477,8 @@ const RealtimeFeed = {
         source.addEventListener('event:created', e => this._onEventCreated(JSON.parse(e.data)));
         source.addEventListener('event:deleted', e => this._onEventDeleted(JSON.parse(e.data)));
         source.addEventListener('schedule:due', e => this._onScheduleDue(JSON.parse(e.data)));
+        source.addEventListener('logsession:created', e => this._onLogSessionCreated(JSON.parse(e.data)));
+        source.addEventListener('containment:override', e => this._onContainmentOverride(JSON.parse(e.data)));
         source.onopen = () => this._setStatus('connected');
         source.onerror = () => this._setStatus('reconnecting'); // native EventSource auto-retries
     },
@@ -2285,6 +2491,17 @@ const RealtimeFeed = {
     _onScheduleDue({ schedule }) {
         Toast.show(`⏰ Scheduled test due: SCP-${schedule.scp} — draft log created`, 'info');
         if (document.getElementById('view-dashboard')?.classList.contains('is-active')) loadAll().then(() => Dashboard.render());
+    },
+
+    _onLogSessionCreated(session) {
+        if (session._origin !== CLIENT_ID) Toast.show(`New facility session started: ${session.label}`, 'info');
+        if (document.getElementById('view-dashboard')?.classList.contains('is-active')) {
+            loadAll().then(() => { StatusStrip.syncAll(); Dashboard.render(); });
+        }
+    },
+
+    _onContainmentOverride(override) {
+        if (document.getElementById('view-board')?.classList.contains('is-active')) ContainmentBoard.render();
     },
 
     markReconnecting() { this._setStatus('reconnecting'); },
@@ -2320,11 +2537,13 @@ const RealtimeFeed = {
     _onEventCreated(ev) {
         if (!S.events.some(e => e.id === ev.id)) S.events.unshift(ev);
         if (!this._isSelf(ev)) Toast.show(`Facility event received: ${ev.type}`, 'info');
+        StatusStrip.syncAll();
         if (document.getElementById('view-dashboard').classList.contains('is-active')) Dashboard.render();
     },
 
     _onEventDeleted({ id }) {
         S.events = S.events.filter(e => e.id !== id);
+        StatusStrip.syncAll();
         if (document.getElementById('view-dashboard').classList.contains('is-active')) Dashboard.render();
     }
 };
@@ -2416,45 +2635,93 @@ const FormNav = {
    VIEWS / ROUTER
    ═══════════════════════════════════════════════════════════════════════ */
 const LoginView = {
-    _roles: [],
-    _selectedRole: null,
+    _mode: 'signin',
 
-    async render() {
-        document.getElementById('loginName').value = '';
+    render() {
         document.getElementById('loginError').classList.add('hidden');
-        this._selectedRole = null;
-        document.getElementById('loginSubmitBtn').disabled = true;
-        try {
-            this._roles = await Api.req('GET', '/api/auth/roles', undefined, { skipQueue: true });
-        } catch {
-            this._roles = Object.entries(ROLE_CLEARANCE).map(([code, clearance]) => ({ code, name: code, clearance }));
-        }
-        document.getElementById('loginRoleGrid').innerHTML = this._roles.map(r => `
-      <div class="role-option" data-action="pick-login-role" data-role="${escHtml(r.code)}">
-        <span class="role-option__code">${escHtml(r.code)}</span>
-        <span class="role-option__name">${escHtml(r.name)}</span>
-        <span class="role-option__clearance">CLEARANCE ${r.clearance}</span>
-      </div>`).join('');
+        document.getElementById('loginNotice').classList.add('hidden');
+        document.getElementById('loginUsername').value = '';
+        document.getElementById('loginPassword').value = '';
+        document.getElementById('loginRememberMe').checked = false;
+        this.showMode('signin');
     },
 
-    pickRole(code) {
-        this._selectedRole = code;
-        document.querySelectorAll('.role-option').forEach(el => el.classList.toggle('is-selected', el.dataset.role === code));
-        document.getElementById('loginSubmitBtn').disabled = !document.getElementById('loginName').value.trim();
+    showMode(mode) {
+        this._mode = mode;
+        document.getElementById('loginModeSignin').classList.toggle('hidden', mode !== 'signin');
+        document.getElementById('loginModeRegister').classList.toggle('hidden', mode !== 'register');
+        document.getElementById('loginCardTitle').textContent = mode === 'signin' ? 'SSRP ACCESS TERMINAL' : 'REQUEST FACILITY ACCESS';
+        document.getElementById('loginCardSub').textContent = mode === 'signin'
+            ? 'Present credentials to open a site session'
+            : 'Submit your details — an administrator must approve your account and assign a role before you can sign in.';
+        document.getElementById('loginError').classList.add('hidden');
+        document.getElementById('loginNotice').classList.add('hidden');
     },
 
-    async submit() {
-        const name = document.getElementById('loginName').value.trim();
+    async submitLogin() {
+        const username = document.getElementById('loginUsername').value.trim();
+        const password = document.getElementById('loginPassword').value;
+        const rememberMe = document.getElementById('loginRememberMe').checked;
         const errEl = document.getElementById('loginError');
         errEl.classList.add('hidden');
-        if (!name) { errEl.textContent = 'Enter your name or designation.'; errEl.classList.remove('hidden'); return; }
-        if (!this._selectedRole) { errEl.textContent = 'Select a Foundation role.'; errEl.classList.remove('hidden'); return; }
+
+        if (!username || !password) { errEl.textContent = 'Enter your username and password.'; errEl.classList.remove('hidden'); return; }
+
         try {
-            const session = await Api.req('POST', '/api/auth/login', { name, role: this._selectedRole }, { skipQueue: true });
-            Session.set(session);
+            const session = await Api.req('POST', '/api/auth/login', { username, password, rememberMe }, { skipQueue: true });
+            Session.set(session, rememberMe);
+            if (session.mustChangePassword) { Views.showChangePassword(); return; }
             await Views.enterApp();
         } catch (err) {
             errEl.textContent = err.message || 'Login failed.';
+            errEl.classList.remove('hidden');
+        }
+    },
+
+    async submitRegister() {
+        const username = document.getElementById('regUsername').value.trim();
+        const displayName = document.getElementById('regDisplayName').value.trim();
+        const password = document.getElementById('regPassword').value;
+        const errEl = document.getElementById('loginError');
+        errEl.classList.add('hidden');
+
+        if (username.length < 3) { errEl.textContent = 'Username must be at least 3 characters.'; errEl.classList.remove('hidden'); return; }
+        if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.classList.remove('hidden'); return; }
+
+        try {
+            const res = await Api.register(username, password, displayName);
+            this.showMode('signin');
+            const notice = document.getElementById('loginNotice');
+            notice.textContent = res.message;
+            notice.classList.remove('hidden');
+            document.getElementById('loginUsername').value = username;
+        } catch (err) {
+            errEl.textContent = err.message || 'Registration failed.';
+            errEl.classList.remove('hidden');
+        }
+    }
+};
+
+const ChangePasswordView = {
+    render() {
+        document.getElementById('pwOld').value = '';
+        document.getElementById('pwNew').value = '';
+        document.getElementById('pwChangeError').classList.add('hidden');
+    },
+
+    async submit() {
+        const oldPassword = document.getElementById('pwOld').value;
+        const newPassword = document.getElementById('pwNew').value;
+        const errEl = document.getElementById('pwChangeError');
+        errEl.classList.add('hidden');
+        if (newPassword.length < 6) { errEl.textContent = 'New password must be at least 6 characters.'; errEl.classList.remove('hidden'); return; }
+        try {
+            await Api.changePassword(oldPassword, newPassword);
+            Toast.show('Password changed. Please sign in again.', 'success');
+            Session.clear();
+            Views.showLogin();
+        } catch (err) {
+            errEl.textContent = err.message || 'Password change failed.';
             errEl.classList.remove('hidden');
         }
     }
@@ -2469,9 +2736,15 @@ const Views = {
         this._activate('view-login');
     },
 
+    showChangePassword() {
+        ChangePasswordView.render();
+        this._activate('view-change-password');
+    },
+
     async enterApp() {
         document.getElementById('sessionBadge').classList.remove('hidden');
         document.getElementById('topbarAuthActions').classList.remove('hidden');
+        document.getElementById('adminNavBtn').classList.toggle('hidden', !Session.isAdmin());
         document.getElementById('sessionBadgeRole').textContent = Session.roleCode;
         document.getElementById('sessionBadgeName').textContent = Session.name;
         document.getElementById('sessionMenuName').textContent = Session.name;
@@ -2481,11 +2754,18 @@ const Views = {
         RealtimeFeed.connect();
     },
 
+    async showAdmin() {
+        if (!Session.isAdmin()) { Toast.show('Administrator role required.', 'error'); return; }
+        await Admin.render();
+        this._activate('view-admin');
+    },
+
     async showDashboard() {
         Timer.reset();
         Drawer.close();
         try { await loadAll(); } catch { Toast.show(I18n.t('toasts.server_error'), 'error'); }
         applySettings();
+        StatusStrip.syncAll();
         Dashboard.render();
         this._activate('view-dashboard');
     },
@@ -2550,6 +2830,7 @@ const Views = {
    ACTION DISPATCH  (single delegated click handler)
    ═══════════════════════════════════════════════════════════════════════ */
 function handleAction(action, el) {
+    // console.log(`action: ${action}\nel.dataset: ${JSON.stringify(el.dataset, null, 2)}\n\nel: ${el.outerHTML}`);
     const d = el.dataset;
     switch (action) {
         case 'new-log': Views.showCreate(); break;
@@ -2631,22 +2912,37 @@ function handleAction(action, el) {
         case 'fault-retry': window.location.reload(); break;
         case 'fault-dismiss': SystemOverlay.hide(); break;
 
-        case 'pick-login-role': LoginView.pickRole(d.role); break;
-        case 'submit-login': LoginView.submit(); break;
+        case 'show-signin-mode': LoginView.showMode('signin'); break;
+        case 'show-register-mode': LoginView.showMode('register'); break;
+        case 'submit-login': LoginView.submitLogin(); break;
+        case 'submit-register': LoginView.submitRegister(); break;
+        case 'submit-change-password': ChangePasswordView.submit(); break;
         case 'toggle-session-menu': document.getElementById('sessionMenu').classList.toggle('is-open'); break;
         case 'logout': doLogout(); break;
 
         case 'show-board': Views.showBoard(); break;
+        case 'show-admin': Views.showAdmin(); break;
         case 'board-open-scp':
             document.getElementById('filterSearch').value = d.scp;
             Views.showDashboard();
             break;
+        case 'resolve-containment': ContainmentBoard.resolve(d.scp, d.status); break;
 
         case 'toggle-role-override-menu': document.getElementById('roleOverrideGrid').classList.toggle('hidden'); break;
         case 'remove-cross-scp': CrossTest.remove(d.num); break;
 
         case 'submit-schedule': Scheduling.submitCreate(); break;
         case 'delete-schedule': Scheduling.remove(d.id); break;
+
+        case 'toggle-session-group': {
+            FacilitySession.toggleCollapsed(d.sessionId);
+            document.querySelector(`.session-group[data-session-id="${CSS.escape(d.sessionId)}"]`)?.classList.toggle('is-collapsed');
+            break;
+        }
+        case 'new-log-session': FacilitySession.startNew(); break;
+
+        case 'admin-reset-password': Admin.resetPassword(d.id); break;
+        case 'admin-delete-user': Admin.deleteUser(d.id); break;
 
         case 'pdf-current': { const log = S.logs.find(l => l.id === S.currentId); if (log) ReportGenerator.generateLogReport(log); break; }
         case 'pdf-event': { const ev = S.events.find(e => e.id === d.id); if (ev) ReportGenerator.generateBreachReport(ev); break; }
@@ -2771,11 +3067,19 @@ function wireStaticListeners() {
     });
     document.getElementById('sortLogs').addEventListener('change', e => { S.dashboard.sort = e.target.value; Dashboard.render(); });
 
-    // Login screen
-    document.getElementById('loginName').addEventListener('input', () => {
-        document.getElementById('loginSubmitBtn').disabled = !document.getElementById('loginName').value.trim() || !LoginView._selectedRole;
+    // Login / register / change-password screens
+    document.getElementById('loginRememberMe').addEventListener('change', e => {
+        document.getElementById('rememberMeChip').classList.toggle('is-on', e.target.checked);
     });
-    document.getElementById('loginName').addEventListener('keydown', e => { if (e.key === 'Enter') LoginView.submit(); });
+    ['loginUsername', 'loginPassword'].forEach(id => {
+        document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') LoginView.submitLogin(); });
+    });
+    ['regUsername', 'regDisplayName', 'regPassword'].forEach(id => {
+        document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') LoginView.submitRegister(); });
+    });
+    ['pwOld', 'pwNew'].forEach(id => {
+        document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') ChangePasswordView.submit(); });
+    });
 
     // Containment status board filters
     const rerenderBoard = debounce(() => ContainmentBoard.render(), 120);
@@ -2798,8 +3102,10 @@ function wireStaticListeners() {
 
         if (Session.loadPersisted()) {
             try {
-                await Api.req('GET', '/api/auth/whoami', undefined, { skipQueue: true });
-                await Views.enterApp();
+                const who = await Api.req('GET', '/api/auth/whoami', undefined, { skipQueue: true });
+                Session.mustChangePassword = !!who.mustChangePassword;
+                if (Session.mustChangePassword) Views.showChangePassword();
+                else await Views.enterApp();
             } catch {
                 Session.clear();
                 await Views.showLogin();

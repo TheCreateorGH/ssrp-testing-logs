@@ -41,4 +41,14 @@ function requireOpsPermission(action) {
     };
 }
 
-module.exports = { attachSession, requireAuth, requireClearance, requireOpsPermission };
+/** Blocks with 403 unless the session's role is ADMIN. Used to gate
+ *  the Admin User Dashboard endpoints. */
+function requireAdmin(req, res, next) {
+    if (!req.session) return res.status(401).json({ error: 'No active session. Please sign in.' });
+    if (req.session.roleCode !== 'ADMIN') {
+        return res.status(403).json({ error: 'This action requires the Administrator role.' });
+    }
+    next();
+}
+
+module.exports = { attachSession, requireAuth, requireClearance, requireOpsPermission, requireAdmin };

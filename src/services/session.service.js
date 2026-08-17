@@ -1,19 +1,19 @@
 const crypto = require('crypto');
-const { getRole } = require('../config/roles');
 
-/** token -> { token, name, roleCode, clearance, createdAt } */
+/** token -> { token, userId, username, name, roleCode, roleName, clearance, createdAt } */
 const sessions = new Map();
 
-function createSession(name, roleCode) {
-    const role = getRole(roleCode);
-    if (!role) return null;
+function createSession(user, roleName) {
     const token = crypto.randomBytes(24).toString('hex');
     const session = {
         token,
-        name: String(name || 'Unidentified').slice(0, 64),
-        roleCode: role.code,
-        roleName: role.name,
-        clearance: role.clearance,
+        userId: user.id,
+        username: user.username,
+        name: user.displayName || user.username,
+        roleCode: user.roleCode,
+        roleName,
+        clearance: user.clearance,
+        mustChangePassword: !!user.mustChangePassword,
         createdAt: new Date().toISOString()
     };
     sessions.set(token, session);
@@ -29,4 +29,13 @@ function destroySession(token) {
     return sessions.delete(token);
 }
 
-module.exports = { createSession, getSession, destroySession };
+/** Invalidates every active session belonging to a user — used when an
+ *  admin deletes the account, resets the password, or changes the role,
+ *  so a stale session can't keep acting under old privileges. */
+function destroyAllSessionsForUser(userId) {
+    for (const [token, session] of sessions) {
+        if (session.userId === userId) sessions.delete(token);
+    }
+}
+
+module.exports = { createSession, getSession, destroySession, destroyAllSessionsForUser };

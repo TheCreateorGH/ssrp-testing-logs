@@ -7,6 +7,7 @@ const { readAllLogs, readLog, saveLog, deleteLogFile } = require('../services/lo
 const { normalizeLog } = require('../utils/normalize');
 const { sanitizeId } = require('../utils/sanitize');
 const { assessGroup } = require('../services/crosscontamination.service');
+const { getActiveSessionId } = require('../services/logsession.service');
 const hub = require('../realtime/hub');
 
 /** A log is visible if the session's clearance meets the log's required
@@ -59,7 +60,8 @@ async function createLog(req, res) {
     const now = new Date().toISOString();
     const crossScps = Array.isArray(req.body.crossScps) ? req.body.crossScps.filter(Boolean) : [];
     const crossContamination = crossScps.length ? assessGroup([req.body.scp, ...crossScps]) : [];
-    const log = normalizeLog({ ...req.body, id, createdAt: now, updatedAt: now, crossContamination });
+    const sessionId = req.body.sessionId || await getActiveSessionId();
+    const log = normalizeLog({ ...req.body, id, createdAt: now, updatedAt: now, crossContamination, sessionId });
     if (!log) return res.status(400).json({ error: 'Invalid payload' });
 
     await saveLog(log, scps);

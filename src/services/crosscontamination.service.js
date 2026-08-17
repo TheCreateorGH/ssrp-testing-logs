@@ -2,15 +2,6 @@
  *  pipe-joined SCP numbers so lookup is order-independent. Undefined
  *  pairs fall back to an "unassessed" result rather than erroring —
  *  Foundation research doesn't have full coverage of every combination. */
-
-/**
- * RISKS:
- * - low: no known adverse interaction; proceed with standard precautions
- * - moderate: some risk of adverse interaction; proceed with heightened precautions
- * - high: significant risk of adverse interaction; proceed with extreme caution
- * - critical: imminent risk of catastrophic failure; proceed with utmost caution
- * - forbidden: known catastrophic failure; do not proceed under any circumstances
- */
 const MATRIX = {
     '049|999': {
         risk: 'low',
@@ -96,11 +87,7 @@ const MATRIX = {
 };
 
 function keyFor(a, b) {
-    return [String(a), String(b)].join('|');
-}
-
-function keyForReverse(a, b) {
-    return [String(b), String(a)].join('|');
+    return [String(a), String(b)].sort().join('|');
 }
 
 /** Returns { risk, reason } for a pair, or an "unassessed" placeholder
@@ -108,10 +95,7 @@ function keyForReverse(a, b) {
  *  if Foundation research has no record for that combination. */
 function assessPair(a, b) {
     if (String(a) === String(b)) return null;
-    let hit = MATRIX[keyFor(a, b)];
-    if (!hit) {
-        hit = MATRIX[keyForReverse(a, b)];
-    }
+    const hit = MATRIX[keyFor(a, b)];
     if (hit) return { scpA: a, scpB: b, ...hit };
     return { scpA: a, scpB: b, risk: 'unassessed', reason: 'No prior joint-containment research exists for this combination. Proceed under standard cross-test precautions.' };
 }

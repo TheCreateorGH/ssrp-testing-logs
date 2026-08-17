@@ -5,3 +5,6 @@ logs
 
 prompt.xml
 *.mmd
+
+log_sessions.json
+users.json

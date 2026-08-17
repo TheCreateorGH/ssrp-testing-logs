@@ -56,7 +56,10 @@ function normalizeLog(d) {
 
         // Cross-test correlation
         crossScps: Array.isArray(d.crossScps) ? [...new Set(d.crossScps.map(String).filter(Boolean))] : [],
-        crossContamination: Array.isArray(d.crossContamination) ? d.crossContamination : []
+        crossContamination: Array.isArray(d.crossContamination) ? d.crossContamination : [],
+
+        // Facility/log session grouping
+        sessionId: d.sessionId || null
     };
 }
 

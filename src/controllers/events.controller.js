@@ -1,6 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 const { readAllEvents, saveEvent, deleteEventFile } = require('../services/event.service');
 const { canPerform } = require('../config/roles');
+const { getActiveSessionId } = require('../services/logsession.service');
 const hub = require('../realtime/hub');
 
 async function listEvents(req, res) {
@@ -14,7 +15,8 @@ async function createEvent(req, res) {
     }
     const id = uuidv4();
     const now = new Date().toISOString();
-    const event = { ...req.body, id, createdAt: now, updatedAt: now, loggedBy: req.session.name, loggedByRole: req.session.roleCode };
+    const sessionId = req.body.sessionId || await getActiveSessionId();
+    const event = { ...req.body, id, createdAt: now, updatedAt: now, sessionId, loggedBy: req.session.name, loggedByRole: req.session.roleCode };
     await saveEvent(event);
     hub.broadcast('event:created', event, req.headers['x-client-id']);
     res.status(201).json(event);

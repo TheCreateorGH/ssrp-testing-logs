@@ -1,0 +1,1324 @@
+diff --git a/.gitignore b/.gitignore
+index 6c9cf39..5f90cd0 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -4,4 +4,7 @@ logs
+ *lock.json
+ 
+ prompt.xml
+-*.mmd
+\ No newline at end of file
++*.mmd
++
++log_sessions.json
++users.json
+\ No newline at end of file
+diff --git a/package.json b/package.json
+index dff771c..8d879d8 100644
+--- a/package.json
++++ b/package.json
+@@ -11,6 +11,7 @@
+     "cors": "^2.8.5",
+     "express": "^4.19.2",
+     "js-yaml": "^4.1.0",
+-    "uuid": "^14.0.1"
++    "rozod": "^6.9.0",
++    "uuid": "^9.0.1"
+   }
+ }
+diff --git a/public/app.js b/public/app.js
+index de12609..9da6000 100644
+--- a/public/app.js
++++ b/public/app.js
+@@ -52,28 +52,17 @@ const TIMELINE_GROUPS = [
+         label: 'Emergency & Security', tone: 'danger',
+         events: ['Mass Class-D Riot', 'Chaos Insurgency Incursion', 'MTF Squad Deployed', 'Site-Wide Lockdown Initiated', 'Perimeter Breach Detected', 'Armed Contact Engaged']
+     },
++    {
++        label: 'Hazard & Biohazard', tone: 'warn',
++        events: ['Code Yellow Biohazard', 'Airborne Contagion Detected', 'Decontamination Protocol Initiated', 'Quarantine Zone Established']
++    },
+     {
+         label: 'Ordnance & Evacuation', tone: 'warn',
+-        events: ['Warhead Activation Sequence', 'Non-Essential Personnel Withdrawn']
++        events: ['Alpha Warhead Activation Sequence', 'Site Evacuation Ordered', 'Non-Essential Personnel Withdrawn']
+     },
+     {
+         label: 'Anomalous Activity', tone: 'danger',
+-        events: [
+-            'SCP-173 Blink Protocol Violation',
+-            'SCP-096 Emotional Agitation',
+-            'SCP-049 Plague Doctor Diagnosis',
+-            'SCP-106 Pocket Dimension Drag',
+-            'SCP-106 Teleportation',
+-            'SCP-076-2 Reanimation & Breach',
+-            'SCP-457 Thermodynamic Expansion',
+-            'SCP-939 Auditory Mimicry Lure',
+-            'SCP-914 Refinement Cycle Started',
+-            'SCP-035 Host Possession',
+-            'SCP-2521 Test Subject Abduction',
+-            'SCP-999 Euphoria Effect Triggered',
+-            'SCP-093 Mirror Portal Activation',
+-            'SCP-2006 Transformation'
+-        ]
++        events: ['SCP-096 Emotional Agitation', 'SCP-049 Plague Doctor Diagnosis', 'SCP-966 Sleep Paralysis Event', 'SCP-914 Refinement Cycle Started', 'SCP-682 Containment Failure', 'SCP-173 Blink Protocol Violation']
+     }
+ ];
+ 
+@@ -328,26 +317,38 @@ const MUTATING_METHODS = new Set(['POST', 'PUT', 'DELETE']);
+ const SESSION_STORAGE_KEY = 'ssrp_session';
+ 
+ const Session = {
+-    token: null, name: null, roleCode: null, roleName: null, clearance: 0,
++    token: null, userId: null, username: null, name: null,
++    roleCode: null, roleName: null, clearance: 0, mustChangePassword: false,
++    _rememberMe: false,
+ 
+     isActive() { return !!this.token; },
++    isAdmin() { return this.roleCode === 'ADMIN'; },
+ 
+-    set(session) {
++    /** Remember Me decides where the token lives: localStorage survives
++     *  a full browser restart, sessionStorage only survives reloads
++     *  within the same tab/session (cleared when the browser closes). */
++    set(session, rememberMe = false) {
+         Object.assign(this, session);
+-        try { localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session)); } catch { /* storage may be unavailable (private mode) */ }
++        this._rememberMe = !!rememberMe;
++        const payload = JSON.stringify({ ...session, _rememberMe: this._rememberMe });
++        try {
++            if (rememberMe) { localStorage.setItem(SESSION_STORAGE_KEY, payload); sessionStorage.removeItem(SESSION_STORAGE_KEY); }
++            else { sessionStorage.setItem(SESSION_STORAGE_KEY, payload); localStorage.removeItem(SESSION_STORAGE_KEY); }
++        } catch { /* storage may be unavailable (private mode) */ }
+     },
+ 
+     loadPersisted() {
+         try {
+-            const raw = localStorage.getItem(SESSION_STORAGE_KEY);
++            const raw = sessionStorage.getItem(SESSION_STORAGE_KEY) || localStorage.getItem(SESSION_STORAGE_KEY);
+             if (raw) { Object.assign(this, JSON.parse(raw)); return true; }
+         } catch { /* ignore malformed/unavailable storage */ }
+         return false;
+     },
+ 
+     clear() {
+-        this.token = null; this.name = null; this.roleCode = null; this.roleName = null; this.clearance = 0;
+-        try { localStorage.removeItem(SESSION_STORAGE_KEY); } catch { /* ignore */ }
++        this.token = null; this.userId = null; this.username = null; this.name = null;
++        this.roleCode = null; this.roleName = null; this.clearance = 0; this.mustChangePassword = false;
++        try { localStorage.removeItem(SESSION_STORAGE_KEY); sessionStorage.removeItem(SESSION_STORAGE_KEY); } catch { /* ignore */ }
+     },
+ 
+     /** Called when the server rejects our token (expired/invalid) —
+@@ -526,7 +527,21 @@ const Api = {
+     createSchedule: payload => Api.req('POST', '/api/schedules', payload),
+     deleteSchedule: id => Api.req('DELETE', `/api/schedules/${id}`),
+ 
+-    assessCrossTest: scps => Api.req('POST', '/api/cross-test/assess', { scps }, { skipQueue: true })
++    assessCrossTest: scps => Api.req('POST', '/api/cross-test/assess', { scps }, { skipQueue: true }),
++
++    register: (username, password, displayName) => Api.req('POST', '/api/auth/register', { username, password, displayName }, { skipQueue: true }),
++    changePassword: (oldPassword, newPassword) => Api.req('POST', '/api/auth/change-password', { oldPassword, newPassword }, { skipQueue: true }),
++
++    adminListUsers: () => Api.req('GET', '/api/admin/users', undefined, { skipQueue: true }),
++    adminUpdateUser: (id, payload) => Api.req('PUT', `/api/admin/users/${id}`, payload, { skipQueue: true }),
++    adminResetPassword: id => Api.req('POST', `/api/admin/users/${id}/reset-password`, undefined, { skipQueue: true }),
++    adminDeleteUser: id => Api.req('DELETE', `/api/admin/users/${id}`, undefined, { skipQueue: true }),
++
++    listLogSessions: () => Api.req('GET', '/api/log-sessions', undefined, { skipQueue: true }),
++    createLogSession: () => Api.req('POST', '/api/log-sessions'),
++
++    getContainmentOverrides: () => Api.req('GET', '/api/containment', undefined, { skipQueue: true }),
++    setContainmentStatus: (scp, status) => Api.req('PUT', `/api/containment/${scp}`, { status })
+ };
+ 
+ /* ═══════════════════════════════════════════════════════════════════════════
+@@ -965,9 +980,26 @@ const StatusStrip = {
+     },
+ 
+     syncAll() {
+-        this.update('alarm', S.w.currentAlarmLevel);
+-        this.update('threat', S.w.currentThreatLevel);
+-        this.update('cdc', S.w.currentCDCAlert);
++        const latestOf = type => S.events
++            .filter(e => e.type === type)
++            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0] || null;
++        const extractQuoted = status => { const m = status && status.match(/'([^']+)'/); return m ? m[1] : null; };
++
++        const alarmEv = latestOf('ALARM');
++        const threatEv = latestOf('THREAT');
++        const cdcEv = latestOf('CDC');
++
++        const alarmVal = alarmEv ? (extractQuoted(alarmEv.status) || 'None') : 'None';
++        const threatVal = threatEv ? (extractQuoted(threatEv.status) || 'Low') : 'Low';
++        const cdcVal = cdcEv ? cdcEv.status : 'Unknown';
++
++        S.w.currentAlarmLevel = alarmVal;
++        S.w.currentThreatLevel = threatVal;
++        S.w.currentCDCAlert = cdcVal;
++
++        this.update('alarm', alarmVal);
++        this.update('threat', threatVal);
++        this.update('cdc', cdcVal);
+     },
+ 
+     startClock() {
+@@ -1507,9 +1539,10 @@ const Dashboard = {
+         return combined;
+     },
+ 
+-    render() {
++    async render() {
+         this.computeStats();
+         OpsConsole.refreshBreachIndicator();
++        await FacilitySession.load();
+ 
+         const combined = this._filtered();
+         document.getElementById('resultCount').textContent = I18n.t('dashboard.results', { count: combined.length });
+@@ -1525,7 +1558,39 @@ const Dashboard = {
+       </div>`;
+             return;
+         }
+-        grid.innerHTML = combined.map(item => item._type === 'log' ? this._logCard(item) : this._eventCard(item)).join('');
++
++        const groups = {};
++        combined.forEach(item => {
++            const sid = item.sessionId || '__none__';
++            (groups[sid] = groups[sid] || []).push(item);
++        });
++
++        const collapsed = FacilitySession.getCollapsed();
++        const sessionMeta = new Map(FacilitySession.list.map(s => [s.id, s]));
++        const orderedIds = Object.keys(groups).sort((a, b) => {
++            if (a === '__none__') return 1;
++            if (b === '__none__') return -1;
++            const sa = sessionMeta.get(a), sb = sessionMeta.get(b);
++            if (sa?.active && !sb?.active) return -1;
++            if (sb?.active && !sa?.active) return 1;
++            return new Date(sb?.createdAt || 0) - new Date(sa?.createdAt || 0);
++        });
++
++        grid.innerHTML = orderedIds.map(sid => {
++            const meta = sessionMeta.get(sid);
++            const items = groups[sid];
++            const label = meta ? meta.label : 'Unassigned (legacy)';
++            const isCollapsed = collapsed.has(sid);
++            return `<div class="session-group${isCollapsed ? ' is-collapsed' : ''}" data-session-id="${escHtml(sid)}">
++        <div class="session-group__head" data-action="toggle-session-group" data-session-id="${escHtml(sid)}">
++          <svg class="icon icon--sm session-group__chevron"><use href="#icon-chevron-down"/></svg>
++          <span class="session-group__title">${escHtml(label)}</span>
++          ${meta?.active ? '<span class="session-group__active-tag">Active</span>' : ''}
++          <span class="session-group__meta">${items.length} entries${meta ? ' · started ' + formatRelative(meta.createdAt) : ''}</span>
++        </div>
++        <div class="grid">${items.map(item => item._type === 'log' ? this._logCard(item) : this._eventCard(item)).join('')}</div>
++      </div>`;
++        }).join('');
+     },
+ 
+     _logCard(log) {
+@@ -1638,43 +1703,42 @@ const Dashboard = {
+    manually tracked — uses the same S.scps roster as every dropdown)
+    ═══════════════════════════════════════════════════════════════════════ */
+ const ContainmentBoard = {
++    overrides: {},
++
++    async loadOverrides() {
++        try { this.overrides = await Api.getContainmentOverrides(); }
++        catch { this.overrides = {}; }
++    },
++
+     computeStatus(scpNum) {
+-        const activeBreach = OpsConsole.getActiveBreaches().some(b => String(b.scp) === String(scpNum));
+-        if (activeBreach) return 'breached';
++        const override = this.overrides[scpNum];
++
++        const activeBreach = OpsConsole.getActiveBreaches().find(b => String(b.scp) === String(scpNum));
++        if (activeBreach && (!override || new Date(activeBreach.createdAt) > new Date(override.setAt))) return 'breached';
+ 
+         const logsForScp = S.logs
+             .filter(l => l.scp === scpNum || (l.crossScps || []).includes(scpNum))
+             .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+-        if (logsForScp.length && ['Aborted', 'Failed'].includes(logsForScp[0].finalStatus)) return 'investigation';
++        const latestLog = logsForScp[0];
++        const logSaysInvestigation = latestLog && ['Aborted', 'Failed'].includes(latestLog.finalStatus);
++        if (logSaysInvestigation && (!override || new Date(latestLog.createdAt) > new Date(override.setAt))) return 'investigation';
+ 
++        if (override) return override.status === 'breached' ? 'breached' : 'secure';
+         return 'secure';
+     },
+ 
+-    render() {
++    async render() {
++        await this.loadOverrides();
+         const search = document.getElementById('boardSearch').value.toLowerCase();
+         const statusFilter = document.getElementById('boardStatusFilter').value;
+ 
+-        // Definition der Prioritäten für die Sortierung
+-        const statusPriority = {
+-            'breached': 1,
+-            'investigation': 2,
+-            'secure': 3
+-        };
+-
+         const rows = Object.entries(S.scps).map(([num, data]) => ({
+             num, data, status: this.computeStatus(num)
+         })).filter(r => {
+             const nameHit = `scp-${r.num} ${r.data.name || ''}`.toLowerCase().includes(search);
+             const statusHit = !statusFilter || r.status === statusFilter;
+             return nameHit && statusHit;
+-        }).sort((a, b) => {
+-            // Zuerst nach Status-Priorität sortieren
+-            const priorityDiff = statusPriority[a.status] - statusPriority[b.status];
+-            if (priorityDiff !== 0) return priorityDiff;
+-
+-            // Bei gleichem Status nach SCP-Nummer sortieren
+-            return a.num.localeCompare(b.num, undefined, { numeric: true, sensitivity: 'base' });
+-        });
++        }).sort((a, b) => a.num.localeCompare(b.num));
+ 
+         document.getElementById('boardResultCount').textContent = `${rows.length} subjects`;
+ 
+@@ -1692,7 +1756,147 @@ const ContainmentBoard = {
+         </div>
+         <div class="containment-card__name">${escHtml(r.data.name || '')}</div>
+         <div><span class="containment-status-pill containment-status-pill--${r.status}">${statusLabel[r.status]}</span></div>
++        ${r.status === 'investigation' ? `
++        <div class="containment-card__actions" onclick="event.stopPropagation()">
++          <button class="btn btn--danger btn--xs" data-action="resolve-containment" data-scp="${escHtml(r.num)}" data-status="breached">Breached</button>
++          <button class="btn btn--success btn--xs" data-action="resolve-containment" data-scp="${escHtml(r.num)}" data-status="secure">Fine</button>
++        </div>` : ''}
+       </div>`).join('');
++    },
++
++    async resolve(scp, status) {
++        const action = status === 'breached' ? 'BREACH' : 'BREACH_END';
++        if (!Session.canPerform(action)) { denyOpsAction(action); return; }
++        try {
++            await Api.setContainmentStatus(scp, status);
++            Toast.show(`SCP-${scp} marked ${status === 'breached' ? 'Breached' : 'Fine'}`, status === 'breached' ? 'error' : 'success');
++            this.render();
++        } catch { /* toast already shown */ }
++    }
++};
++
++/* ═══════════════════════════════════════════════════════════════════════════
++   ADMIN USER DASHBOARD
++   ═══════════════════════════════════════════════════════════════════════ */
++const Admin = {
++    _users: [],
++
++    async render() {
++        try { this._users = await Api.adminListUsers(); }
++        catch { this._users = []; }
++        document.getElementById('adminResultCount').textContent = `${this._users.length} users`;
++
++        const roleOptions = Object.entries(ROLE_CLEARANCE)
++            .map(([code]) => `<option value="${code}">${code}</option>`).join('');
++
++        const table = document.getElementById('adminUserTable');
++        if (!this._users.length) {
++            table.innerHTML = `<div class="empty-state"><svg class="icon"><use href="#icon-inbox"/></svg><div class="empty-state__title">No users</div></div>`;
++            return;
++        }
++        table.innerHTML = `
++      <div class="admin-table-head"><span>User</span><span>Role</span><span>Clearance</span><span>Approved</span><span></span></div>
++      ${this._users.map(u => `
++        <div class="admin-row admin-row--${u.approved ? 'approved' : 'pending'}">
++          <div class="admin-row__user">
++            <span class="admin-row__username">${escHtml(u.username)}</span>
++            <span class="admin-row__name">${escHtml(u.displayName || '')}${u.mustChangePassword ? ' · <span style="color:var(--caution)">pending pw change</span>' : ''}</span>
++          </div>
++          <select class="admin-row__role-select" data-admin-field="role" data-id="${escHtml(u.id)}">
++            <option value="">— none —</option>
++            ${roleOptions}
++          </select>
++          <select class="admin-row__clearance-select" data-admin-field="clearance" data-id="${escHtml(u.id)}">
++            ${[0, 1, 2, 3, 4, 5, 6].map(n => `<option value="${n}">${n}</option>`).join('')}
++          </select>
++          <label class="chip-toggle${u.approved ? ' is-on' : ''}" style="height:32px">
++            <input type="checkbox" data-admin-field="approved" data-id="${escHtml(u.id)}" ${u.approved ? 'checked' : ''}>
++            <span>${u.approved ? 'Approved' : 'Pending'}</span>
++          </label>
++          <div class="admin-row__actions">
++            <button class="btn btn--ghost btn--xs" data-action="admin-reset-password" data-id="${escHtml(u.id)}" title="Reset password"><svg class="icon icon--sm"><use href="#icon-save"/></svg></button>
++            <button class="btn btn--danger btn--xs" data-action="admin-delete-user" data-id="${escHtml(u.id)}" title="Delete account"><svg class="icon icon--sm"><use href="#icon-trash"/></svg></button>
++          </div>
++        </div>`).join('')}
++    `;
++
++        // Pre-select current values (native <select> can't take a "selected" attribute dynamically as cleanly as this)
++        this._users.forEach(u => {
++            const roleSel = table.querySelector(`select[data-admin-field="role"][data-id="${CSS.escape(u.id)}"]`);
++            const clSel = table.querySelector(`select[data-admin-field="clearance"][data-id="${CSS.escape(u.id)}"]`);
++            if (roleSel) roleSel.value = u.roleCode || '';
++            if (clSel) clSel.value = String(u.clearance ?? 0);
++        });
++
++        table.querySelectorAll('[data-admin-field="role"]').forEach(el => el.addEventListener('change', e => this.updateUser(e.target.dataset.id, { roleCode: e.target.value || null })));
++        table.querySelectorAll('[data-admin-field="clearance"]').forEach(el => el.addEventListener('change', e => this.updateUser(e.target.dataset.id, { clearance: parseInt(e.target.value) })));
++        table.querySelectorAll('[data-admin-field="approved"]').forEach(el => el.addEventListener('change', e => this.updateUser(e.target.dataset.id, { approved: e.target.checked })));
++    },
++
++    async updateUser(id, patch) {
++        try {
++            await Api.adminUpdateUser(id, patch);
++            Toast.show('User updated', 'success');
++            this.render();
++        } catch { /* toast already shown */ }
++    },
++
++    async resetPassword(id) {
++        try {
++            const { tempPassword } = await Api.adminResetPassword(id);
++            document.getElementById('tempPasswordDisplay').textContent = tempPassword;
++            Modal.open('temp-password');
++            this.render();
++        } catch { /* toast already shown */ }
++    },
++
++    async deleteUser(id) {
++        const ok = await ConfirmDialog.ask('Delete this user account?', 'This cannot be undone and will end any active session immediately.');
++        if (!ok) return;
++        try {
++            await Api.adminDeleteUser(id);
++            Toast.show('User deleted', 'success');
++            this.render();
++        } catch { /* toast already shown */ }
++    }
++};
++
++/* ═══════════════════════════════════════════════════════════════════════════
++   FACILITY SESSIONS  ("Log Sessions" — server-hop reset grouping)
++   ═══════════════════════════════════════════════════════════════════════ */
++const FacilitySession = {
++    _collapsedKey: 'ssrp_collapsed_sessions',
++    list: [],
++
++    async load() {
++        try { this.list = await Api.listLogSessions(); }
++        catch { this.list = []; }
++        return this.list;
++    },
++
++    getCollapsed() {
++        try { return new Set(JSON.parse(localStorage.getItem(this._collapsedKey) || '[]')); }
++        catch { return new Set(); }
++    },
++
++    toggleCollapsed(id) {
++        const set = this.getCollapsed();
++        set.has(id) ? set.delete(id) : set.add(id);
++        try { localStorage.setItem(this._collapsedKey, JSON.stringify([...set])); } catch { /* ignore */ }
++    },
++
++    async startNew() {
++        const ok = await ConfirmDialog.ask(
++            'Start a new facility session?',
++            'Alarm, Threat, and CDC status will reset to defaults. Existing logs are kept, just grouped under the previous session.'
++        );
++        if (!ok) return;
++        try {
++            await Api.createLogSession();
++            Toast.show('New facility session started', 'success');
++            Drawer.close();
++            await Views.showDashboard();
++        } catch { /* toast already shown */ }
+     }
+ };
+ 
+@@ -1799,33 +2003,33 @@ const Detail = {
+           </div>
+ 
+           ${(() => {
+-                const audit = (log.manualLogs || []).map(parseAuditEntry).filter(Boolean)
+-                    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+-                if (!audit.length) return '';
+-                const catMeta = {
+-                    security: { label: 'Terminated by Security', icon: 'icon-alert-triangle', color: 'var(--sd)' },
+-                    scp: { label: 'Killed by SCP', icon: 'icon-alert-triangle', color: 'var(--signal)' },
+-                    personnel: { label: 'Personnel Lost', icon: 'icon-alert-triangle', color: 'var(--mtf)' }
+-                };
+-                return `<div class="report-block">
++            const audit = (log.manualLogs || []).map(parseAuditEntry).filter(Boolean)
++                .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
++            if (!audit.length) return '';
++            const catMeta = {
++                security: { label: 'Terminated by Security', icon: 'icon-alert-triangle', color: 'var(--sd)' },
++                scp: { label: 'Killed by SCP', icon: 'icon-alert-triangle', color: 'var(--signal)' },
++                personnel: { label: 'Personnel Lost', icon: 'icon-alert-triangle', color: 'var(--mtf)' }
++            };
++            return `<div class="report-block">
+               <div class="report-block__head" style="color:var(--signal)">${I18n.t('detail.audit_trail')} <span style="color:var(--text-dim);font-weight:400;text-transform:none;letter-spacing:0">(${audit.length})</span></div>
+               <div class="report-block__body" style="padding:var(--sp-3) var(--sp-5)">
+                 <div class="audit-list">
+                   ${audit.map(a => {
+-                    const meta = catMeta[a.category];
+-                    const ts = new Date(a.timestamp).toISOString().replace('T', ' ').slice(0, 19);
+-                    return `<div class="audit-entry">
++                      const meta = catMeta[a.category];
++                      const ts = new Date(a.timestamp).toISOString().replace('T', ' ').slice(0, 19);
++                      return `<div class="audit-entry">
+                         <svg class="icon icon--sm" style="color:${meta.color}"><use href="#${meta.icon}"/></svg>
+                         <div class="audit-entry__body">
+                           <div class="audit-entry__head"><strong style="color:${meta.color}">${escHtml(meta.label)}</strong><span class="audit-entry__unit">Unit #${a.unitNum}</span><span class="audit-entry__ts">${ts} UTC</span></div>
+                           <div class="audit-entry__reason">${a.reason ? escHtml(a.reason) : `<em style="color:var(--text-dim)">${I18n.t('detail.no_reason')}</em>`}</div>
+                         </div>
+                       </div>`;
+-                }).join('')}
++                  }).join('')}
+                 </div>
+               </div>
+             </div>`;
+-            })()}
++          })()}
+ 
+           ${(log.crossScps && log.crossScps.length) ? `<div class="report-block">
+             <div class="report-block__head">Cross-Test Correlation</div>
+@@ -2273,6 +2477,8 @@ const RealtimeFeed = {
+         source.addEventListener('event:created', e => this._onEventCreated(JSON.parse(e.data)));
+         source.addEventListener('event:deleted', e => this._onEventDeleted(JSON.parse(e.data)));
+         source.addEventListener('schedule:due', e => this._onScheduleDue(JSON.parse(e.data)));
++        source.addEventListener('logsession:created', e => this._onLogSessionCreated(JSON.parse(e.data)));
++        source.addEventListener('containment:override', e => this._onContainmentOverride(JSON.parse(e.data)));
+         source.onopen = () => this._setStatus('connected');
+         source.onerror = () => this._setStatus('reconnecting'); // native EventSource auto-retries
+     },
+@@ -2287,6 +2493,17 @@ const RealtimeFeed = {
+         if (document.getElementById('view-dashboard')?.classList.contains('is-active')) loadAll().then(() => Dashboard.render());
+     },
+ 
++    _onLogSessionCreated(session) {
++        if (session._origin !== CLIENT_ID) Toast.show(`New facility session started: ${session.label}`, 'info');
++        if (document.getElementById('view-dashboard')?.classList.contains('is-active')) {
++            loadAll().then(() => { StatusStrip.syncAll(); Dashboard.render(); });
++        }
++    },
++
++    _onContainmentOverride(override) {
++        if (document.getElementById('view-board')?.classList.contains('is-active')) ContainmentBoard.render();
++    },
++
+     markReconnecting() { this._setStatus('reconnecting'); },
+ 
+     _setStatus(status) {
+@@ -2320,11 +2537,13 @@ const RealtimeFeed = {
+     _onEventCreated(ev) {
+         if (!S.events.some(e => e.id === ev.id)) S.events.unshift(ev);
+         if (!this._isSelf(ev)) Toast.show(`Facility event received: ${ev.type}`, 'info');
++        StatusStrip.syncAll();
+         if (document.getElementById('view-dashboard').classList.contains('is-active')) Dashboard.render();
+     },
+ 
+     _onEventDeleted({ id }) {
+         S.events = S.events.filter(e => e.id !== id);
++        StatusStrip.syncAll();
+         if (document.getElementById('view-dashboard').classList.contains('is-active')) Dashboard.render();
+     }
+ };
+@@ -2416,45 +2635,93 @@ const FormNav = {
+    VIEWS / ROUTER
+    ═══════════════════════════════════════════════════════════════════════ */
+ const LoginView = {
+-    _roles: [],
+-    _selectedRole: null,
++    _mode: 'signin',
+ 
+-    async render() {
+-        document.getElementById('loginName').value = '';
++    render() {
++        document.getElementById('loginError').classList.add('hidden');
++        document.getElementById('loginNotice').classList.add('hidden');
++        document.getElementById('loginUsername').value = '';
++        document.getElementById('loginPassword').value = '';
++        document.getElementById('loginRememberMe').checked = false;
++        this.showMode('signin');
++    },
++
++    showMode(mode) {
++        this._mode = mode;
++        document.getElementById('loginModeSignin').classList.toggle('hidden', mode !== 'signin');
++        document.getElementById('loginModeRegister').classList.toggle('hidden', mode !== 'register');
++        document.getElementById('loginCardTitle').textContent = mode === 'signin' ? 'SSRP ACCESS TERMINAL' : 'REQUEST FACILITY ACCESS';
++        document.getElementById('loginCardSub').textContent = mode === 'signin'
++            ? 'Present credentials to open a site session'
++            : 'Submit your details — an administrator must approve your account and assign a role before you can sign in.';
+         document.getElementById('loginError').classList.add('hidden');
+-        this._selectedRole = null;
+-        document.getElementById('loginSubmitBtn').disabled = true;
++        document.getElementById('loginNotice').classList.add('hidden');
++    },
++
++    async submitLogin() {
++        const username = document.getElementById('loginUsername').value.trim();
++        const password = document.getElementById('loginPassword').value;
++        const rememberMe = document.getElementById('loginRememberMe').checked;
++        const errEl = document.getElementById('loginError');
++        errEl.classList.add('hidden');
++
++        if (!username || !password) { errEl.textContent = 'Enter your username and password.'; errEl.classList.remove('hidden'); return; }
++
+         try {
+-            this._roles = await Api.req('GET', '/api/auth/roles', undefined, { skipQueue: true });
+-        } catch {
+-            this._roles = Object.entries(ROLE_CLEARANCE).map(([code, clearance]) => ({ code, name: code, clearance }));
++            const session = await Api.req('POST', '/api/auth/login', { username, password, rememberMe }, { skipQueue: true });
++            Session.set(session, rememberMe);
++            if (session.mustChangePassword) { Views.showChangePassword(); return; }
++            await Views.enterApp();
++        } catch (err) {
++            errEl.textContent = err.message || 'Login failed.';
++            errEl.classList.remove('hidden');
+         }
+-        document.getElementById('loginRoleGrid').innerHTML = this._roles.map(r => `
+-      <div class="role-option" data-action="pick-login-role" data-role="${escHtml(r.code)}">
+-        <span class="role-option__code">${escHtml(r.code)}</span>
+-        <span class="role-option__name">${escHtml(r.name)}</span>
+-        <span class="role-option__clearance">CLEARANCE ${r.clearance}</span>
+-      </div>`).join('');
+     },
+ 
+-    pickRole(code) {
+-        this._selectedRole = code;
+-        document.querySelectorAll('.role-option').forEach(el => el.classList.toggle('is-selected', el.dataset.role === code));
+-        document.getElementById('loginSubmitBtn').disabled = !document.getElementById('loginName').value.trim();
++    async submitRegister() {
++        const username = document.getElementById('regUsername').value.trim();
++        const displayName = document.getElementById('regDisplayName').value.trim();
++        const password = document.getElementById('regPassword').value;
++        const errEl = document.getElementById('loginError');
++        errEl.classList.add('hidden');
++
++        if (username.length < 3) { errEl.textContent = 'Username must be at least 3 characters.'; errEl.classList.remove('hidden'); return; }
++        if (password.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.classList.remove('hidden'); return; }
++
++        try {
++            const res = await Api.register(username, password, displayName);
++            this.showMode('signin');
++            const notice = document.getElementById('loginNotice');
++            notice.textContent = res.message;
++            notice.classList.remove('hidden');
++            document.getElementById('loginUsername').value = username;
++        } catch (err) {
++            errEl.textContent = err.message || 'Registration failed.';
++            errEl.classList.remove('hidden');
++        }
++    }
++};
++
++const ChangePasswordView = {
++    render() {
++        document.getElementById('pwOld').value = '';
++        document.getElementById('pwNew').value = '';
++        document.getElementById('pwChangeError').classList.add('hidden');
+     },
+ 
+     async submit() {
+-        const name = document.getElementById('loginName').value.trim();
+-        const errEl = document.getElementById('loginError');
++        const oldPassword = document.getElementById('pwOld').value;
++        const newPassword = document.getElementById('pwNew').value;
++        const errEl = document.getElementById('pwChangeError');
+         errEl.classList.add('hidden');
+-        if (!name) { errEl.textContent = 'Enter your name or designation.'; errEl.classList.remove('hidden'); return; }
+-        if (!this._selectedRole) { errEl.textContent = 'Select a Foundation role.'; errEl.classList.remove('hidden'); return; }
++        if (newPassword.length < 6) { errEl.textContent = 'New password must be at least 6 characters.'; errEl.classList.remove('hidden'); return; }
+         try {
+-            const session = await Api.req('POST', '/api/auth/login', { name, role: this._selectedRole }, { skipQueue: true });
+-            Session.set(session);
+-            await Views.enterApp();
++            await Api.changePassword(oldPassword, newPassword);
++            Toast.show('Password changed. Please sign in again.', 'success');
++            Session.clear();
++            Views.showLogin();
+         } catch (err) {
+-            errEl.textContent = err.message || 'Login failed.';
++            errEl.textContent = err.message || 'Password change failed.';
+             errEl.classList.remove('hidden');
+         }
+     }
+@@ -2469,9 +2736,15 @@ const Views = {
+         this._activate('view-login');
+     },
+ 
++    showChangePassword() {
++        ChangePasswordView.render();
++        this._activate('view-change-password');
++    },
++
+     async enterApp() {
+         document.getElementById('sessionBadge').classList.remove('hidden');
+         document.getElementById('topbarAuthActions').classList.remove('hidden');
++        document.getElementById('adminNavBtn').classList.toggle('hidden', !Session.isAdmin());
+         document.getElementById('sessionBadgeRole').textContent = Session.roleCode;
+         document.getElementById('sessionBadgeName').textContent = Session.name;
+         document.getElementById('sessionMenuName').textContent = Session.name;
+@@ -2481,11 +2754,18 @@ const Views = {
+         RealtimeFeed.connect();
+     },
+ 
++    async showAdmin() {
++        if (!Session.isAdmin()) { Toast.show('Administrator role required.', 'error'); return; }
++        await Admin.render();
++        this._activate('view-admin');
++    },
++
+     async showDashboard() {
+         Timer.reset();
+         Drawer.close();
+         try { await loadAll(); } catch { Toast.show(I18n.t('toasts.server_error'), 'error'); }
+         applySettings();
++        StatusStrip.syncAll();
+         Dashboard.render();
+         this._activate('view-dashboard');
+     },
+@@ -2550,6 +2830,7 @@ const Views = {
+    ACTION DISPATCH  (single delegated click handler)
+    ═══════════════════════════════════════════════════════════════════════ */
+ function handleAction(action, el) {
++    // console.log(`action: ${action}\nel.dataset: ${JSON.stringify(el.dataset, null, 2)}\n\nel: ${el.outerHTML}`);
+     const d = el.dataset;
+     switch (action) {
+         case 'new-log': Views.showCreate(); break;
+@@ -2631,16 +2912,21 @@ function handleAction(action, el) {
+         case 'fault-retry': window.location.reload(); break;
+         case 'fault-dismiss': SystemOverlay.hide(); break;
+ 
+-        case 'pick-login-role': LoginView.pickRole(d.role); break;
+-        case 'submit-login': LoginView.submit(); break;
++        case 'show-signin-mode': LoginView.showMode('signin'); break;
++        case 'show-register-mode': LoginView.showMode('register'); break;
++        case 'submit-login': LoginView.submitLogin(); break;
++        case 'submit-register': LoginView.submitRegister(); break;
++        case 'submit-change-password': ChangePasswordView.submit(); break;
+         case 'toggle-session-menu': document.getElementById('sessionMenu').classList.toggle('is-open'); break;
+         case 'logout': doLogout(); break;
+ 
+         case 'show-board': Views.showBoard(); break;
++        case 'show-admin': Views.showAdmin(); break;
+         case 'board-open-scp':
+             document.getElementById('filterSearch').value = d.scp;
+             Views.showDashboard();
+             break;
++        case 'resolve-containment': ContainmentBoard.resolve(d.scp, d.status); break;
+ 
+         case 'toggle-role-override-menu': document.getElementById('roleOverrideGrid').classList.toggle('hidden'); break;
+         case 'remove-cross-scp': CrossTest.remove(d.num); break;
+@@ -2648,6 +2934,16 @@ function handleAction(action, el) {
+         case 'submit-schedule': Scheduling.submitCreate(); break;
+         case 'delete-schedule': Scheduling.remove(d.id); break;
+ 
++        case 'toggle-session-group': {
++            FacilitySession.toggleCollapsed(d.sessionId);
++            document.querySelector(`.session-group[data-session-id="${CSS.escape(d.sessionId)}"]`)?.classList.toggle('is-collapsed');
++            break;
++        }
++        case 'new-log-session': FacilitySession.startNew(); break;
++
++        case 'admin-reset-password': Admin.resetPassword(d.id); break;
++        case 'admin-delete-user': Admin.deleteUser(d.id); break;
++
+         case 'pdf-current': { const log = S.logs.find(l => l.id === S.currentId); if (log) ReportGenerator.generateLogReport(log); break; }
+         case 'pdf-event': { const ev = S.events.find(e => e.id === d.id); if (ev) ReportGenerator.generateBreachReport(ev); break; }
+         default: break;
+@@ -2771,11 +3067,19 @@ function wireStaticListeners() {
+     });
+     document.getElementById('sortLogs').addEventListener('change', e => { S.dashboard.sort = e.target.value; Dashboard.render(); });
+ 
+-    // Login screen
+-    document.getElementById('loginName').addEventListener('input', () => {
+-        document.getElementById('loginSubmitBtn').disabled = !document.getElementById('loginName').value.trim() || !LoginView._selectedRole;
++    // Login / register / change-password screens
++    document.getElementById('loginRememberMe').addEventListener('change', e => {
++        document.getElementById('rememberMeChip').classList.toggle('is-on', e.target.checked);
++    });
++    ['loginUsername', 'loginPassword'].forEach(id => {
++        document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') LoginView.submitLogin(); });
++    });
++    ['regUsername', 'regDisplayName', 'regPassword'].forEach(id => {
++        document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') LoginView.submitRegister(); });
++    });
++    ['pwOld', 'pwNew'].forEach(id => {
++        document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') ChangePasswordView.submit(); });
+     });
+-    document.getElementById('loginName').addEventListener('keydown', e => { if (e.key === 'Enter') LoginView.submit(); });
+ 
+     // Containment status board filters
+     const rerenderBoard = debounce(() => ContainmentBoard.render(), 120);
+@@ -2798,8 +3102,10 @@ function wireStaticListeners() {
+ 
+         if (Session.loadPersisted()) {
+             try {
+-                await Api.req('GET', '/api/auth/whoami', undefined, { skipQueue: true });
+-                await Views.enterApp();
++                const who = await Api.req('GET', '/api/auth/whoami', undefined, { skipQueue: true });
++                Session.mustChangePassword = !!who.mustChangePassword;
++                if (Session.mustChangePassword) Views.showChangePassword();
++                else await Views.enterApp();
+             } catch {
+                 Session.clear();
+                 await Views.showLogin();
+diff --git a/public/index.html b/public/index.html
+index d9d6b96..1f8fb1d 100644
+--- a/public/index.html
++++ b/public/index.html
+@@ -88,6 +88,9 @@
+       </div>
+     </div>
+     <div class="hidden" id="topbarAuthActions" style="display:contents">
++      <button class="btn btn--icon hidden" id="adminNavBtn" data-action="show-admin" aria-label="Admin dashboard" title="Admin User Dashboard">
++        <svg class="icon"><use href="#icon-lock"/></svg>
++      </button>
+       <button class="btn btn--icon" data-action="show-board" aria-label="Containment status board" title="Containment Status Board">
+         <svg class="icon"><use href="#icon-shield"/></svg>
+       </button>
+@@ -162,6 +165,12 @@
+         <svg class="icon"><use href="#icon-warhead"/></svg><span>Warhead Control</span><svg class="icon icon--sm drawer__lock hidden"><use href="#icon-lock"/></svg>
+       </button>
+     </div>
++    <div class="drawer__group">
++      <div class="drawer__group-label">Facility</div>
++      <button class="drawer__item drawer__item--warn" data-action="new-log-session">
++        <svg class="icon"><use href="#icon-radio"/></svg><span>Start New Session</span>
++      </button>
++    </div>
+     <div class="drawer__group">
+       <div class="drawer__group-label">Scheduling</div>
+       <button class="drawer__item" data-action="open-modal" data-modal="schedule">
+@@ -373,21 +382,81 @@
+       <div class="login-card">
+         <div class="login-card__brand">
+           <div class="brand-mark" style="width:52px;height:52px;font-size:24px">☣</div>
+-          <div class="login-card__title">SSRP ACCESS TERMINAL</div>
+-          <div class="login-card__sub">Present credentials to open a site session</div>
++          <div class="login-card__title" id="loginCardTitle">SSRP ACCESS TERMINAL</div>
++          <div class="login-card__sub" id="loginCardSub">Present credentials to open a site session</div>
++        </div>
++
++        <!-- Sign-in mode -->
++        <div id="loginModeSignin">
++          <div class="field" style="margin-bottom:var(--sp-4)">
++            <label class="field__label" for="loginUsername">Username</label>
++            <input type="text" id="loginUsername" placeholder="e.g. dr.bright" autocomplete="username">
++          </div>
++          <div class="field" style="margin-bottom:var(--sp-3)">
++            <label class="field__label" for="loginPassword">Password</label>
++            <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
++          </div>
++          <label class="chip-toggle" id="rememberMeChip" style="margin-bottom:var(--sp-5)">
++            <input type="checkbox" id="loginRememberMe">
++            <svg class="icon icon--sm"><use href="#icon-check-circle"/></svg><span>Remember Me</span>
++          </label>
++          <button class="btn btn--primary btn--block" data-action="submit-login" id="loginSubmitBtn">
++            <svg class="icon icon--sm"><use href="#icon-shield"/></svg>Open Session
++          </button>
++          <p style="text-align:center;margin-top:var(--sp-4)">
++            <a class="fault-toggle-link" data-action="show-register-mode">No account? Register</a>
++          </p>
++        </div>
++
++        <!-- Registration mode -->
++        <div id="loginModeRegister" class="hidden">
++          <div class="field" style="margin-bottom:var(--sp-4)">
++            <label class="field__label" for="regUsername">Choose a Username</label>
++            <input type="text" id="regUsername" placeholder="e.g. dr.bright" autocomplete="username">
++          </div>
++          <div class="field" style="margin-bottom:var(--sp-4)">
++            <label class="field__label" for="regDisplayName">Display Name</label>
++            <input type="text" id="regDisplayName" placeholder="Dr. Bright" autocomplete="name">
++          </div>
++          <div class="field" style="margin-bottom:var(--sp-5)">
++            <label class="field__label" for="regPassword">Choose a Password</label>
++            <input type="password" id="regPassword" placeholder="At least 6 characters" autocomplete="new-password">
++          </div>
++          <button class="btn btn--primary btn--block" data-action="submit-register">
++            <svg class="icon icon--sm"><use href="#icon-plus"/></svg>Create Account
++          </button>
++          <p style="text-align:center;margin-top:var(--sp-4)">
++            <a class="fault-toggle-link" data-action="show-signin-mode">Already have an account? Sign in</a>
++          </p>
++        </div>
++
++        <div class="login-card__error hidden" id="loginError"></div>
++        <div class="login-card__notice hidden" id="loginNotice"></div>
++      </div>
++    </div>
++  </section>
++
++  <!-- ─── Forced password change (bootstrap admin / admin reset) ───────── -->
++  <section class="view" id="view-change-password">
++    <div class="login-shell">
++      <div class="login-card">
++        <div class="login-card__brand">
++          <div class="brand-mark" style="width:52px;height:52px;font-size:24px">☣</div>
++          <div class="login-card__title">PASSWORD CHANGE REQUIRED</div>
++          <div class="login-card__sub">Your current password was issued temporarily and must be changed before continuing.</div>
+         </div>
+         <div class="field" style="margin-bottom:var(--sp-4)">
+-          <label class="field__label" for="loginName">Full Name / Designation</label>
+-          <input type="text" id="loginName" placeholder="Dr. Surname, or unit callsign" autocomplete="off">
++          <label class="field__label" for="pwOld">Current (temporary) Password</label>
++          <input type="password" id="pwOld" autocomplete="current-password">
+         </div>
+         <div class="field" style="margin-bottom:var(--sp-5)">
+-          <label class="field__label">Foundation Role</label>
+-          <div class="role-grid" id="loginRoleGrid"></div>
++          <label class="field__label" for="pwNew">New Password</label>
++          <input type="password" id="pwNew" placeholder="At least 6 characters" autocomplete="new-password">
+         </div>
+-        <button class="btn btn--primary btn--block" data-action="submit-login" id="loginSubmitBtn" disabled>
+-          <svg class="icon icon--sm"><use href="#icon-shield"/></svg>Open Session
++        <button class="btn btn--primary btn--block" data-action="submit-change-password">
++          <svg class="icon icon--sm"><use href="#icon-check-circle"/></svg>Set New Password
+         </button>
+-        <div class="login-card__error hidden" id="loginError"></div>
++        <div class="login-card__error hidden" id="pwChangeError"></div>
+       </div>
+     </div>
+   </section>
+@@ -678,8 +747,31 @@
+     <div class="grid" id="boardGrid"></div>
+   </section>
+ 
++  <!-- ─── Admin User Dashboard ───────────────────────────────────────────── -->
++  <section class="view" id="view-admin">
++    <div class="form-header">
++      <button class="btn btn--ghost btn--sm" data-action="go-dashboard"><svg class="icon icon--sm"><use href="#icon-chevron-left"/></svg>Back</button>
++      <span class="form-header__title">Admin User Dashboard</span>
++      <span class="result-count" id="adminResultCount">0 users</span>
++    </div>
++    <div class="admin-table" id="adminUserTable"></div>
++  </section>
++
+ </main>
+ 
++<div class="modal-layer" id="modal-temp-password">
++  <div class="modal">
++    <div class="modal__head" style="--tone:var(--clear)"><span class="modal__title"><svg class="icon"><use href="#icon-check-circle"/></svg>Password Reset</span><button class="btn btn--icon btn--ghost" data-action="close-modal"><svg class="icon"><use href="#icon-x"/></svg></button></div>
++    <div class="modal__body">
++      <p class="modal__desc">Relay this temporary password to the user. They will be required to change it on their next sign-in.</p>
++      <div class="temp-password-display" id="tempPasswordDisplay">—</div>
++    </div>
++    <div class="modal__foot">
++      <button class="btn btn--ghost" data-action="close-modal">Done</button>
++    </div>
++  </div>
++</div>
++
+ <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+ <script src="app.js"></script>
+ </body>
+diff --git a/public/style.css b/public/style.css
+index 7570f2d..7959997 100644
+--- a/public/style.css
++++ b/public/style.css
+@@ -23,6 +23,8 @@
+     --clear-glow: rgba(46, 230, 166, .22);
+     --access: #4d8dff;
+     --access-glow: rgba(77, 141, 255, .22);
++    --purple: #b352ff;
++    --purple-glow: rgba(179, 82, 255, .25);
+     --muted-tone: #7a7d87;
+ 
+     --text: #c7c9d1;
+@@ -1024,6 +1026,41 @@ input[type="number"]::-webkit-outer-spin-button {
+ .login-card__title { font-family: var(--f-display); font-size: 15px; letter-spacing: 2px; color: var(--text-bright); }
+ .login-card__sub { font-family: var(--f-mono); font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+ .login-card__error { margin-top: var(--sp-3); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); background: var(--signal-glow); border: 1px solid var(--signal); color: var(--signal); font-size: 12px; text-align: center; }
++.login-card__notice { margin-top: var(--sp-3); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); background: var(--clear-glow); border: 1px solid var(--clear); color: var(--clear); font-size: 12px; text-align: center; }
++
++/* ══════════════════════════════════════════════════════════════════════════
++   ADMIN USER DASHBOARD
++   ═══════════════════════════════════════════════════════════════════════ */
++.admin-table { display: flex; flex-direction: column; gap: 6px; }
++.admin-row {
++    display: grid; grid-template-columns: 1.2fr 1fr .8fr .6fr auto; gap: var(--sp-3); align-items: center;
++    background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4);
++}
++.admin-row--pending { border-left: 3px solid var(--caution); }
++.admin-row--approved { border-left: 3px solid var(--clear); }
++.admin-row__user { display: flex; flex-direction: column; gap: 2px; }
++.admin-row__username { font-family: var(--f-mono); font-size: 12.5px; color: var(--text-bright); font-weight: 700; }
++.admin-row__name { font-size: 11px; color: var(--text-dim); }
++.admin-row__role-select, .admin-row__clearance-select { height: 32px; font-size: 11.5px; }
++.admin-row__actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
++.admin-table-head { display: grid; grid-template-columns: 1.2fr 1fr .8fr .6fr auto; gap: var(--sp-3); padding: 0 var(--sp-4) var(--sp-2); font-family: var(--f-mono); font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
++
++.temp-password-display { font-family: var(--f-mono); font-size: 22px; letter-spacing: 2px; text-align: center; padding: var(--sp-4); background: var(--panel-2); border: 1px dashed var(--clear); border-radius: var(--r-md); color: var(--clear); }
++
++/* Containment board quick-resolve actions */
++.containment-card__actions { display: flex; gap: 6px; margin-top: var(--sp-1); }
++.containment-card__actions .btn { flex: 1; }
++
++/* Facility session grouping on the dashboard */
++.session-group + .session-group { margin-top: var(--sp-5); }
++.session-group__head { display: flex; align-items: center; gap: var(--sp-3); cursor: pointer; padding: var(--sp-2) 0; margin-bottom: var(--sp-3); user-select: none; }
++.session-group__chevron { transition: transform var(--t-fast); color: var(--text-dim); }
++.session-group.is-collapsed .session-group__chevron { transform: rotate(-90deg); }
++.session-group.is-collapsed .grid { display: none; }
++.session-group__title { font-family: var(--f-display); font-size: 13px; color: var(--text-bright); letter-spacing: 1px; }
++.session-group__meta { font-family: var(--f-mono); font-size: 10.5px; color: var(--text-dim); }
++.session-group__active-tag { font-family: var(--f-mono); font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: var(--r-full); background: var(--clear-glow); color: var(--clear); text-transform: uppercase; letter-spacing: .5px; }
++
+ 
+ .role-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; max-height: 260px; overflow-y: auto; padding-right: 2px; }
+ .role-option { display: flex; flex-direction: column; gap: 2px; padding: var(--sp-2) var(--sp-3); background: var(--panel-2); border: 1px solid var(--line-2); border-radius: var(--r-md); cursor: pointer; transition: all var(--t-fast); }
+@@ -1063,6 +1100,7 @@ input[type="number"]::-webkit-outer-spin-button {
+ .cross-warning-list { display: flex; flex-direction: column; gap: 6px; margin-top: var(--sp-2); }
+ .cross-warning-list:empty { display: none; }
+ .cross-warning { display: flex; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); border-left: 3px solid; font-size: 11.5px; background: var(--panel-2); }
++.cross-warning--forbidden { border-color: var(--purple)}
+ .cross-warning--critical { border-color: var(--signal); }
+ .cross-warning--high { border-color: var(--signal); }
+ .cross-warning--moderate { border-color: var(--caution); }
+@@ -1070,6 +1108,7 @@ input[type="number"]::-webkit-outer-spin-button {
+ .cross-warning--unassessed { border-color: var(--line-3); }
+ .cross-warning__tag { font-family: var(--f-mono); font-size: 9.5px; font-weight: 700; text-transform: uppercase; flex-shrink: 0; padding: 2px 6px; border-radius: 4px; height: fit-content; }
+ .cross-warning--critical .cross-warning__tag, .cross-warning--high .cross-warning__tag { background: var(--signal-glow); color: var(--signal); }
++.cross-warning__tag, .cross-warning--forbidden .cross-warning__tag { background: var(--purple-glow); color: var(--purple); }
+ .cross-warning--moderate .cross-warning__tag { background: var(--caution-glow); color: var(--caution); }
+ .cross-warning--low .cross-warning__tag { background: var(--clear-glow); color: var(--clear); }
+ .cross-warning--unassessed .cross-warning__tag { background: var(--panel-3); color: var(--text-dim); }
+diff --git a/server.js b/server.js
+index 515148c..1cf086f 100644
+--- a/server.js
++++ b/server.js
+@@ -1,17 +1,24 @@
+ const app = require('./src/app');
+ const { readAllLogs } = require('./src/services/log.service');
+ const scheduler = require('./src/realtime/scheduler');
++const userService = require('./src/services/user.service');
++const logSessionService = require('./src/services/logsession.service');
+ 
+ const PORT = process.env.PORT || 3000;
+ 
+-app.listen(PORT, async () => {
+-    const logs = await readAllLogs();
+-    scheduler.start();
+-    console.log(`
+-╔══════════════════════════════════════════════════════════════════════════════════════════════════╗
+-║  ☣  SSRP TEST LOG SYSTEM  v2.0  — ONLINE                                                        ║
+-║  https://ssrp-testing-logs.onrender.com/ OR http://localhost:${PORT}                             ║
+-║  Loaded ${String(logs.length).padEnd(3)} existing log(s) from /logs/                             ║
+-╚══════════════════════════════════════════════════════════════════════════════════════════════════╝
++(async () => {
++    await userService.ensureBootstrapAdmin();
++    await logSessionService.ensureDefaultSession();
++
++    app.listen(PORT, async () => {
++        const logs = await readAllLogs();
++        scheduler.start();
++        console.log(`
++╔════════════════════════════════════════════════════╗
++║  ☣  SSRP TEST LOG SYSTEM  v2.0  — ONLINE           ║
++║  http://localhost:${PORT}                             ║
++║  Loaded ${String(logs.length).padEnd(3)} existing log(s) from /logs/        ║
++╚════════════════════════════════════════════════════╝
+ `);
+-});
++    });
++})();
+diff --git a/src/controllers/auth.controller.js b/src/controllers/auth.controller.js
+index cd3355a..a0d6ace 100644
+--- a/src/controllers/auth.controller.js
++++ b/src/controllers/auth.controller.js
+@@ -1,21 +1,47 @@
+-const { ROLES } = require('../config/roles');
+-const { createSession, destroySession } = require('../services/session.service');
++const { ROLES, getRole } = require('../config/roles');
++const userService = require('../services/user.service');
++const { createSession, destroySession, destroyAllSessionsForUser } = require('../services/session.service');
+ 
+ function listRoles(req, res) {
+     res.json(Object.values(ROLES));
+ }
+ 
+-function login(req, res) {
+-    const { name, role } = req.body || {};
+-    if (!name || !String(name).trim()) return res.status(400).json({ error: 'Name is required.' });
+-    if (!role || !ROLES[role]) return res.status(400).json({ error: 'A valid role is required.' });
++async function register(req, res) {
++    const { username, password, displayName } = req.body || {};
++    if (!username || String(username).trim().length < 3) {
++        return res.status(400).json({ error: 'Username must be at least 3 characters.' });
++    }
++    if (!password || String(password).length < 6) {
++        return res.status(400).json({ error: 'Password must be at least 6 characters.' });
++    }
++    try {
++        const user = await userService.register({ username, password, displayName });
++        res.status(201).json({
++            registered: true,
++            message: 'Account created. An administrator must approve your account and assign a role before you can sign in.',
++            user
++        });
++    } catch (err) {
++        res.status(err.status || 500).json({ error: err.message });
++    }
++}
++
++async function login(req, res) {
++    const { username, password, rememberMe } = req.body || {};
++    if (!username || !password) return res.status(400).json({ error: 'Username and password are required.' });
+ 
+-    const session = createSession(name, role);
+-    res.status(201).json(session);
++    try {
++        const user = await userService.authenticate(username, password);
++        const role = getRole(user.roleCode);
++        const session = createSession(user, role ? role.name : null);
++        res.status(201).json({ ...session, rememberMe: !!rememberMe });
++    } catch (err) {
++        res.status(err.status || 500).json({ error: err.message, reason: err.reason || null });
++    }
+ }
+ 
+ function logout(req, res) {
+-    const token = req.headers['x-session-token'];
++    const token = req.headers['x-session-token'] || req.query.token;
+     destroySession(token);
+     res.json({ loggedOut: true });
+ }
+@@ -25,4 +51,18 @@ function whoami(req, res) {
+     res.json(req.session);
+ }
+ 
+-module.exports = { listRoles, login, logout, whoami };
++async function changePassword(req, res) {
++    const { oldPassword, newPassword } = req.body || {};
++    if (!newPassword || newPassword.length < 6) {
++        return res.status(400).json({ error: 'New password must be at least 6 characters.' });
++    }
++    try {
++        await userService.changePassword(req.session.userId, oldPassword, newPassword);
++        destroyAllSessionsForUser(req.session.userId);
++        res.json({ changed: true, message: 'Password updated. Please sign in again.' });
++    } catch (err) {
++        res.status(err.status || 500).json({ error: err.message });
++    }
++}
++
++module.exports = { listRoles, register, login, logout, whoami, changePassword };
+diff --git a/src/controllers/events.controller.js b/src/controllers/events.controller.js
+index d72bb08..438bfe5 100644
+--- a/src/controllers/events.controller.js
++++ b/src/controllers/events.controller.js
+@@ -1,6 +1,7 @@
+ const { v4: uuidv4 } = require('uuid');
+ const { readAllEvents, saveEvent, deleteEventFile } = require('../services/event.service');
+ const { canPerform } = require('../config/roles');
++const { getActiveSessionId } = require('../services/logsession.service');
+ const hub = require('../realtime/hub');
+ 
+ async function listEvents(req, res) {
+@@ -14,7 +15,8 @@ async function createEvent(req, res) {
+     }
+     const id = uuidv4();
+     const now = new Date().toISOString();
+-    const event = { ...req.body, id, createdAt: now, updatedAt: now, loggedBy: req.session.name, loggedByRole: req.session.roleCode };
++    const sessionId = req.body.sessionId || await getActiveSessionId();
++    const event = { ...req.body, id, createdAt: now, updatedAt: now, sessionId, loggedBy: req.session.name, loggedByRole: req.session.roleCode };
+     await saveEvent(event);
+     hub.broadcast('event:created', event, req.headers['x-client-id']);
+     res.status(201).json(event);
+diff --git a/src/controllers/logs.controller.js b/src/controllers/logs.controller.js
+index d05b4e4..22dd45f 100644
+--- a/src/controllers/logs.controller.js
++++ b/src/controllers/logs.controller.js
+@@ -7,6 +7,7 @@ const { readAllLogs, readLog, saveLog, deleteLogFile } = require('../services/lo
+ const { normalizeLog } = require('../utils/normalize');
+ const { sanitizeId } = require('../utils/sanitize');
+ const { assessGroup } = require('../services/crosscontamination.service');
++const { getActiveSessionId } = require('../services/logsession.service');
+ const hub = require('../realtime/hub');
+ 
+ /** A log is visible if the session's clearance meets the log's required
+@@ -59,7 +60,8 @@ async function createLog(req, res) {
+     const now = new Date().toISOString();
+     const crossScps = Array.isArray(req.body.crossScps) ? req.body.crossScps.filter(Boolean) : [];
+     const crossContamination = crossScps.length ? assessGroup([req.body.scp, ...crossScps]) : [];
+-    const log = normalizeLog({ ...req.body, id, createdAt: now, updatedAt: now, crossContamination });
++    const sessionId = req.body.sessionId || await getActiveSessionId();
++    const log = normalizeLog({ ...req.body, id, createdAt: now, updatedAt: now, crossContamination, sessionId });
+     if (!log) return res.status(400).json({ error: 'Invalid payload' });
+ 
+     await saveLog(log, scps);
+diff --git a/src/middleware/auth.middleware.js b/src/middleware/auth.middleware.js
+index e2f8dd5..dd18b3a 100644
+--- a/src/middleware/auth.middleware.js
++++ b/src/middleware/auth.middleware.js
+@@ -41,4 +41,14 @@ function requireOpsPermission(action) {
+     };
+ }
+ 
+-module.exports = { attachSession, requireAuth, requireClearance, requireOpsPermission };
++/** Blocks with 403 unless the session's role is ADMIN. Used to gate
++ *  the Admin User Dashboard endpoints. */
++function requireAdmin(req, res, next) {
++    if (!req.session) return res.status(401).json({ error: 'No active session. Please sign in.' });
++    if (req.session.roleCode !== 'ADMIN') {
++        return res.status(403).json({ error: 'This action requires the Administrator role.' });
++    }
++    next();
++}
++
++module.exports = { attachSession, requireAuth, requireClearance, requireOpsPermission, requireAdmin };
+diff --git a/src/routes/auth.routes.js b/src/routes/auth.routes.js
+index 27b3870..5d87570 100644
+--- a/src/routes/auth.routes.js
++++ b/src/routes/auth.routes.js
+@@ -5,8 +5,10 @@ const { attachSession, requireAuth } = require('../middleware/auth.middleware');
+ const router = Router();
+ 
+ router.get('/roles', ctrl.listRoles);
++router.post('/register', ctrl.register);
+ router.post('/login', ctrl.login);
+ router.get('/whoami', attachSession, requireAuth, ctrl.whoami);
+ router.post('/logout', attachSession, ctrl.logout);
++router.post('/change-password', attachSession, requireAuth, ctrl.changePassword);
+ 
+ module.exports = router;
+diff --git a/src/routes/index.js b/src/routes/index.js
+index 967a49a..c3b574b 100644
+--- a/src/routes/index.js
++++ b/src/routes/index.js
+@@ -1,6 +1,7 @@
+ const { Router } = require('express');
+ 
+ const authRoutes = require('./auth.routes');
++const adminRoutes = require('./admin.routes');
+ const logsRoutes = require('./logs.routes');
+ const eventsRoutes = require('./events.routes');
+ const scpsRoutes = require('./scps.routes');
+@@ -9,12 +10,15 @@ const importRoutes = require('./import.routes');
+ const streamRoutes = require('./stream.routes');
+ const scheduleRoutes = require('./schedule.routes');
+ const crossTestRoutes = require('./crosstest.routes');
++const logSessionRoutes = require('./logsession.routes');
++const containmentRoutes = require('./containment.routes');
+ const { requireAuth } = require('../middleware/auth.middleware');
+ 
+ const router = Router();
+ 
+ router.use('/auth', authRoutes);
+ 
++router.use('/admin', requireAuth, adminRoutes);
+ router.use('/logs', requireAuth, logsRoutes);
+ router.use('/events', requireAuth, eventsRoutes);
+ router.use('/scps', requireAuth, scpsRoutes);
+@@ -23,5 +27,7 @@ router.use('/import', requireAuth, importRoutes);
+ router.use('/stream', requireAuth, streamRoutes);
+ router.use('/schedules', requireAuth, scheduleRoutes);
+ router.use('/cross-test', requireAuth, crossTestRoutes);
++router.use('/log-sessions', requireAuth, logSessionRoutes);
++router.use('/containment', requireAuth, containmentRoutes);
+ 
+ module.exports = router;
+diff --git a/src/services/crosscontamination.service.js b/src/services/crosscontamination.service.js
+index 4393226..cb31838 100644
+--- a/src/services/crosscontamination.service.js
++++ b/src/services/crosscontamination.service.js
+@@ -2,15 +2,6 @@
+  *  pipe-joined SCP numbers so lookup is order-independent. Undefined
+  *  pairs fall back to an "unassessed" result rather than erroring —
+  *  Foundation research doesn't have full coverage of every combination. */
+-
+-/**
+- * RISKS:
+- * - low: no known adverse interaction; proceed with standard precautions
+- * - moderate: some risk of adverse interaction; proceed with heightened precautions
+- * - high: significant risk of adverse interaction; proceed with extreme caution
+- * - critical: imminent risk of catastrophic failure; proceed with utmost caution
+- * - forbidden: known catastrophic failure; do not proceed under any circumstances
+- */
+ const MATRIX = {
+     '049|999': {
+         risk: 'low',
+@@ -96,11 +87,7 @@ const MATRIX = {
+ };
+ 
+ function keyFor(a, b) {
+-    return [String(a), String(b)].join('|');
+-}
+-
+-function keyForReverse(a, b) {
+-    return [String(b), String(a)].join('|');
++    return [String(a), String(b)].sort().join('|');
+ }
+ 
+ /** Returns { risk, reason } for a pair, or an "unassessed" placeholder
+@@ -108,10 +95,7 @@ function keyForReverse(a, b) {
+  *  if Foundation research has no record for that combination. */
+ function assessPair(a, b) {
+     if (String(a) === String(b)) return null;
+-    let hit = MATRIX[keyFor(a, b)];
+-    if (!hit) {
+-        hit = MATRIX[keyForReverse(a, b)];
+-    }
++    const hit = MATRIX[keyFor(a, b)];
+     if (hit) return { scpA: a, scpB: b, ...hit };
+     return { scpA: a, scpB: b, risk: 'unassessed', reason: 'No prior joint-containment research exists for this combination. Proceed under standard cross-test precautions.' };
+ }
+diff --git a/src/services/session.service.js b/src/services/session.service.js
+index f6ec8b9..c559de2 100644
+--- a/src/services/session.service.js
++++ b/src/services/session.service.js
+@@ -1,19 +1,19 @@
+ const crypto = require('crypto');
+-const { getRole } = require('../config/roles');
+ 
+-/** token -> { token, name, roleCode, clearance, createdAt } */
++/** token -> { token, userId, username, name, roleCode, roleName, clearance, createdAt } */
+ const sessions = new Map();
+ 
+-function createSession(name, roleCode) {
+-    const role = getRole(roleCode);
+-    if (!role) return null;
++function createSession(user, roleName) {
+     const token = crypto.randomBytes(24).toString('hex');
+     const session = {
+         token,
+-        name: String(name || 'Unidentified').slice(0, 64),
+-        roleCode: role.code,
+-        roleName: role.name,
+-        clearance: role.clearance,
++        userId: user.id,
++        username: user.username,
++        name: user.displayName || user.username,
++        roleCode: user.roleCode,
++        roleName,
++        clearance: user.clearance,
++        mustChangePassword: !!user.mustChangePassword,
+         createdAt: new Date().toISOString()
+     };
+     sessions.set(token, session);
+@@ -29,4 +29,13 @@ function destroySession(token) {
+     return sessions.delete(token);
+ }
+ 
+-module.exports = { createSession, getSession, destroySession };
++/** Invalidates every active session belonging to a user — used when an
++ *  admin deletes the account, resets the password, or changes the role,
++ *  so a stale session can't keep acting under old privileges. */
++function destroyAllSessionsForUser(userId) {
++    for (const [token, session] of sessions) {
++        if (session.userId === userId) sessions.delete(token);
++    }
++}
++
++module.exports = { createSession, getSession, destroySession, destroyAllSessionsForUser };
+diff --git a/src/utils/normalize.js b/src/utils/normalize.js
+index 293b87d..8940123 100644
+--- a/src/utils/normalize.js
++++ b/src/utils/normalize.js
+@@ -56,7 +56,10 @@ function normalizeLog(d) {
+ 
+         // Cross-test correlation
+         crossScps: Array.isArray(d.crossScps) ? [...new Set(d.crossScps.map(String).filter(Boolean))] : [],
+-        crossContamination: Array.isArray(d.crossContamination) ? d.crossContamination : []
++        crossContamination: Array.isArray(d.crossContamination) ? d.crossContamination : [],
++
++        // Facility/log session grouping
++        sessionId: d.sessionId || null
+     };
+ }
+ 

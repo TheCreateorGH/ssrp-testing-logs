@@ -88,6 +88,9 @@
       </div>
     </div>
     <div class="hidden" id="topbarAuthActions" style="display:contents">
+      <button class="btn btn--icon hidden" id="adminNavBtn" data-action="show-admin" aria-label="Admin dashboard" title="Admin User Dashboard">
+        <svg class="icon"><use href="#icon-lock"/></svg>
+      </button>
       <button class="btn btn--icon" data-action="show-board" aria-label="Containment status board" title="Containment Status Board">
         <svg class="icon"><use href="#icon-shield"/></svg>
       </button>
@@ -160,6 +163,12 @@
       </button>
       <button class="drawer__item drawer__item--warn" data-action="open-modal" data-modal="nuke" data-ops-action="WARHEAD">
         <svg class="icon"><use href="#icon-warhead"/></svg><span>Warhead Control</span><svg class="icon icon--sm drawer__lock hidden"><use href="#icon-lock"/></svg>
+      </button>
+    </div>
+    <div class="drawer__group">
+      <div class="drawer__group-label">Facility</div>
+      <button class="drawer__item drawer__item--warn" data-action="new-log-session">
+        <svg class="icon"><use href="#icon-radio"/></svg><span>Start New Session</span>
       </button>
     </div>
     <div class="drawer__group">
@@ -373,21 +382,81 @@
       <div class="login-card">
         <div class="login-card__brand">
           <div class="brand-mark" style="width:52px;height:52px;font-size:24px">☣</div>
-          <div class="login-card__title">SSRP ACCESS TERMINAL</div>
-          <div class="login-card__sub">Present credentials to open a site session</div>
+          <div class="login-card__title" id="loginCardTitle">SSRP ACCESS TERMINAL</div>
+          <div class="login-card__sub" id="loginCardSub">Present credentials to open a site session</div>
+        </div>
+
+        <!-- Sign-in mode -->
+        <div id="loginModeSignin">
+          <div class="field" style="margin-bottom:var(--sp-4)">
+            <label class="field__label" for="loginUsername">Username</label>
+            <input type="text" id="loginUsername" placeholder="e.g. dr.bright" autocomplete="username">
+          </div>
+          <div class="field" style="margin-bottom:var(--sp-3)">
+            <label class="field__label" for="loginPassword">Password</label>
+            <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+          </div>
+          <label class="chip-toggle" id="rememberMeChip" style="margin-bottom:var(--sp-5)">
+            <input type="checkbox" id="loginRememberMe">
+            <svg class="icon icon--sm"><use href="#icon-check-circle"/></svg><span>Remember Me</span>
+          </label>
+          <button class="btn btn--primary btn--block" data-action="submit-login" id="loginSubmitBtn">
+            <svg class="icon icon--sm"><use href="#icon-shield"/></svg>Open Session
+          </button>
+          <p style="text-align:center;margin-top:var(--sp-4)">
+            <a class="fault-toggle-link" data-action="show-register-mode">No account? Register</a>
+          </p>
+        </div>
+
+        <!-- Registration mode -->
+        <div id="loginModeRegister" class="hidden">
+          <div class="field" style="margin-bottom:var(--sp-4)">
+            <label class="field__label" for="regUsername">Choose a Username</label>
+            <input type="text" id="regUsername" placeholder="e.g. dr.bright" autocomplete="username">
+          </div>
+          <div class="field" style="margin-bottom:var(--sp-4)">
+            <label class="field__label" for="regDisplayName">Display Name</label>
+            <input type="text" id="regDisplayName" placeholder="Dr. Bright" autocomplete="name">
+          </div>
+          <div class="field" style="margin-bottom:var(--sp-5)">
+            <label class="field__label" for="regPassword">Choose a Password</label>
+            <input type="password" id="regPassword" placeholder="At least 6 characters" autocomplete="new-password">
+          </div>
+          <button class="btn btn--primary btn--block" data-action="submit-register">
+            <svg class="icon icon--sm"><use href="#icon-plus"/></svg>Create Account
+          </button>
+          <p style="text-align:center;margin-top:var(--sp-4)">
+            <a class="fault-toggle-link" data-action="show-signin-mode">Already have an account? Sign in</a>
+          </p>
+        </div>
+
+        <div class="login-card__error hidden" id="loginError"></div>
+        <div class="login-card__notice hidden" id="loginNotice"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Forced password change (bootstrap admin / admin reset) ───────── -->
+  <section class="view" id="view-change-password">
+    <div class="login-shell">
+      <div class="login-card">
+        <div class="login-card__brand">
+          <div class="brand-mark" style="width:52px;height:52px;font-size:24px">☣</div>
+          <div class="login-card__title">PASSWORD CHANGE REQUIRED</div>
+          <div class="login-card__sub">Your current password was issued temporarily and must be changed before continuing.</div>
         </div>
         <div class="field" style="margin-bottom:var(--sp-4)">
-          <label class="field__label" for="loginName">Full Name / Designation</label>
-          <input type="text" id="loginName" placeholder="Dr. Surname, or unit callsign" autocomplete="off">
+          <label class="field__label" for="pwOld">Current (temporary) Password</label>
+          <input type="password" id="pwOld" autocomplete="current-password">
         </div>
         <div class="field" style="margin-bottom:var(--sp-5)">
-          <label class="field__label">Foundation Role</label>
-          <div class="role-grid" id="loginRoleGrid"></div>
+          <label class="field__label" for="pwNew">New Password</label>
+          <input type="password" id="pwNew" placeholder="At least 6 characters" autocomplete="new-password">
         </div>
-        <button class="btn btn--primary btn--block" data-action="submit-login" id="loginSubmitBtn" disabled>
-          <svg class="icon icon--sm"><use href="#icon-shield"/></svg>Open Session
+        <button class="btn btn--primary btn--block" data-action="submit-change-password">
+          <svg class="icon icon--sm"><use href="#icon-check-circle"/></svg>Set New Password
         </button>
-        <div class="login-card__error hidden" id="loginError"></div>
+        <div class="login-card__error hidden" id="pwChangeError"></div>
       </div>
     </div>
   </section>
@@ -678,7 +747,30 @@
     <div class="grid" id="boardGrid"></div>
   </section>
 
+  <!-- ─── Admin User Dashboard ───────────────────────────────────────────── -->
+  <section class="view" id="view-admin">
+    <div class="form-header">
+      <button class="btn btn--ghost btn--sm" data-action="go-dashboard"><svg class="icon icon--sm"><use href="#icon-chevron-left"/></svg>Back</button>
+      <span class="form-header__title">Admin User Dashboard</span>
+      <span class="result-count" id="adminResultCount">0 users</span>
+    </div>
+    <div class="admin-table" id="adminUserTable"></div>
+  </section>
+
 </main>
+
+<div class="modal-layer" id="modal-temp-password">
+  <div class="modal">
+    <div class="modal__head" style="--tone:var(--clear)"><span class="modal__title"><svg class="icon"><use href="#icon-check-circle"/></svg>Password Reset</span><button class="btn btn--icon btn--ghost" data-action="close-modal"><svg class="icon"><use href="#icon-x"/></svg></button></div>
+    <div class="modal__body">
+      <p class="modal__desc">Relay this temporary password to the user. They will be required to change it on their next sign-in.</p>
+      <div class="temp-password-display" id="tempPasswordDisplay">—</div>
+    </div>
+    <div class="modal__foot">
+      <button class="btn btn--ghost" data-action="close-modal">Done</button>
+    </div>
+  </div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="app.js"></script>

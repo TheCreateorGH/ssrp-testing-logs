@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>☣ SSRP — 404 Containment Breach (Page Not Found)</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.terminal/js/jquery.terminal.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jquery.terminal/css/jquery.terminal.min.css"/>
+<style>
+  /* Page-specific layout helpers using existing CSS tokens without touching style.css */
+  .error-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(80vh - var(--topbar-h) - var(--strip-h));
+    text-align: center;
+    padding: var(--sp-6) var(--sp-4);
+  }
+
+  .error-card {
+    background: var(--panel);
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-xl);
+    padding: var(--sp-7) var(--sp-6);
+    max-width: 680px;
+    width: 100%;
+    box-shadow: var(--shadow-2);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .error-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--signal), var(--caution));
+  }
+
+  .error-code {
+    font-family: var(--f-display);
+    font-size: 80px;
+    font-weight: 900;
+    line-height: 1;
+    color: var(--signal);
+    text-shadow: var(--shadow-glow);
+    letter-spacing: 4px;
+    margin-bottom: var(--sp-2);
+  }
+
+  .error-title {
+    font-family: var(--f-display);
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--text-bright);
+    text-transform: uppercase;
+    margin-bottom: var(--sp-3);
+  }
+
+  .error-desc {
+    font-family: var(--f-mono);
+    font-size: 13px;
+    color: var(--text-mid);
+    margin-bottom: var(--sp-6);
+    line-height: 1.6;
+  }
+
+  .terminal-box {
+    text-align: left;
+    margin-top: var(--sp-5);
+    border-radius: var(--r-md);
+    overflow: hidden;
+    border: 1px solid var(--line-2);
+  }
+
+  .glitch-text {
+    cursor: pointer;
+    user-select: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- SVG Icon Sprite -->
+<svg style="display:none" aria-hidden="true">
+  <defs>
+    <symbol id="icon-alert-triangle" viewBox="0 0 24 24"><path d="M12 4 2 20h20Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><line x1="12" y1="10" x2="12" y2="14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.2" r="1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="icon-chevron-left" viewBox="0 0 24 24"><polyline points="15 6 9 12 15 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="icon-bell" viewBox="0 0 24 24"><path d="M6 10a6 6 0 0 1 12 0c0 4 1.5 5.5 1.5 5.5H4.5S6 14 6 10Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M10 19a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="icon-activity" viewBox="0 0 24 24"><polyline points="3 12 8 12 10 6 14 18 16 12 21 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </defs>
+</svg>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="topbar__brand">
+    <div class="brand-mark">☣</div>
+    <div class="brand-text">
+      <div class="brand-title">SSRP</div>
+      <div class="brand-sub">Site Security Reporting Platform</div>
+    </div>
+  </div>
+  <div class="topbar__actions">
+    <a href="index.html" class="btn btn--primary">
+      <svg class="icon icon--sm"><use href="#icon-chevron-left"/></svg><span>Return to Terminal</span>
+    </a>
+  </div>
+</header>
+
+<!-- Status Strip -->
+<div class="status-strip" role="status" aria-live="polite">
+
+
+  <div class="status-seg is-flash" id="stripAlarmSeg" data-kind="alarm" style="color: var(--signal);">
+    <svg class="icon icon--sm"><use href="#icon-bell"></use></svg>
+    <span class="status-seg__label">Alarm</span><span class="status-seg__value redacted" id="stripAlarmVal">Daybreak</span>
+  </div>
+  <div class="status-seg is-flash" id="stripThreatSeg" data-kind="threat" style="color: var(--signal);">
+    <svg class="icon icon--sm"><use href="#icon-activity"></use></svg>
+    <span class="status-seg__label">Threat</span><span class="status-seg__value redacted" id="stripThreatVal">Extreme</span>
+  </div>
+  <div class="status-seg is-flash" id="stripCdcSeg" data-kind="cdc" style="color: var(--signal);">
+    <svg class="icon icon--sm"><use href="#icon-shield"></use></svg>
+    <span class="status-seg__label">CDC</span><span class="status-seg__value redacted" id="stripCdcVal">Non Existent</span>
+  </div>
+  <div class="status-clock"><span class="dot" style="background-color: var(--signal); animation: none;"></span><span id="statusClockBroken"></span></div>
+  <div class="live-feed-indicator is-reconnecting" id="liveFeedIndicator" title="Live feed connection">
+    <span class="live-feed-indicator__dot" style="background-color: var(--signal);"></span><span class="live-feed-indicator__label" id="liveFeedLabel">Error</span>
+  </div>
+</div>
+
+<!-- Main Error Section -->
+<main id="shell">
+  <div class="error-container">
+    <div class="error-card">
+      <div class="error-code glitch-text" id="easterEggTrigger" title="Click 5 times for classified access">404</div>
+      <div class="error-title">RESOURCE EXPUNGED / NON-EXISTENT</div>
+      <p class="error-desc">
+        [SYSTEM NOTICE]: The requested file or sector URL could not be located in the Foundation database.
+        It may have been expunged by Order of O5-Command, redacted, or relocated during containment protocols.
+      </p>
+
+      <div style="display:flex; gap:var(--sp-3); justify-content:center; flex-wrap:wrap;">
+        <a href="/" class="btn btn--primary">
+          <svg class="icon"><use href="#icon-shield"/></svg><span>Return to Dashboard</span>
+        </a>
+        <!-- <button class="btn btn--ghost" id="toggleConsoleBtn">
+          <span>Open Emergency Console</span>
+        </button> -->
+      </div>
+
+      <!-- Emergency Terminal / Easter Egg Console -->
+      <div class="terminal-box hidden" id="terminalContainer">
+        <div id="easterEggTerminal" style="height: 25vh;"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="404.js"></script>
+</body>
+</html>

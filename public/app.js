@@ -19,20 +19,37 @@ const CLIENT_ID = (window.crypto && crypto.randomUUID)
     : `c-${Math.random().toString(36).slice(2)}${Date.now()}`;
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   ROLES / PERMISSIONS  (client-side mirror for UI gating only — the
-   server in src/config/roles.js is the authoritative enforcement point)
+   ROLES  (fetched from the server — /api/auth/roles — since clearance
+   levels are backend-owned reference data, used only for display here:
+   admin dropdowns, the role-override picker, etc.)
    ═══════════════════════════════════════════════════════════════════════ */
-const ROLE_CLEARANCE = { SD: 1, MD: 1, ScD: 2, MTF: 3, RRT: 3, ISD: 3, IA: 4, SiD: 5, O5: 6, ADMIN: 6 };
-const OPS_PERMISSIONS = {
-    BREACH: ['ISD', 'MTF', 'RRT', 'SiD', 'O5', 'ADMIN'],
-    BREACH_END: ['ISD', 'MTF', 'RRT', 'SiD', 'O5', 'ADMIN'],
-    CDC_RIOT: ['ISD', 'SD', 'SiD', 'O5', 'ADMIN'],
-    ALARM: ['ISD', 'SiD', 'O5', 'ADMIN'],
-    THREAT: ['ISD', 'IA', 'SiD', 'O5', 'ADMIN'],
-    CDC: ['MD', 'ISD', 'SiD', 'O5', 'ADMIN'],
-    BROADCAST: ['SiD', 'O5', 'ADMIN', 'IA'],
-    WARHEAD: ['O5', 'ADMIN']
+const Roles = {
+    list: [], // [{code, name, clearance}, ...]
+    async load() {
+        try { this.list = await Api.req('GET', '/api/auth/roles', undefined, { skipQueue: true }); }
+        catch { this.list = []; }
+        return this.list;
+    },
+    clearanceOf(code) {
+        const r = this.list.find(x => x.code === code);
+        return r ? r.clearance : 0;
+    }
 };
+
+/** Wildcard-aware permission match, mirroring src/services/permission
+ *  .service.js's matches() exactly — grants may use '*' for either
+ *  segment of a "VERB:NOUN" action, or '*'/'*:*' for everything. */
+function matchesPermission(granted, action) {
+    if (!Array.isArray(granted) || !action) return false;
+    const [wantVerb, wantNoun] = String(action).split(':');
+    return granted.some(g => {
+        if (g === '*' || g === '*:*') return true;
+        const [gv, gn] = String(g).split(':');
+        const verbOk = gv === '*' || gv === wantVerb;
+        const nounOk = gn === '*' || gn === wantNoun;
+        return verbOk && nounOk;
+    });
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    CONSTANTS
@@ -53,16 +70,27 @@ const TIMELINE_GROUPS = [
         events: ['Mass Class-D Riot', 'Chaos Insurgency Incursion', 'MTF Squad Deployed', 'Site-Wide Lockdown Initiated', 'Perimeter Breach Detected', 'Armed Contact Engaged']
     },
     {
-        label: 'Hazard & Biohazard', tone: 'warn',
-        events: ['Code Yellow Biohazard', 'Airborne Contagion Detected', 'Decontamination Protocol Initiated', 'Quarantine Zone Established']
-    },
-    {
         label: 'Ordnance & Evacuation', tone: 'warn',
-        events: ['Alpha Warhead Activation Sequence', 'Site Evacuation Ordered', 'Non-Essential Personnel Withdrawn']
+        events: ['Warhead Activation Sequence', 'Non-Essential Personnel Withdrawn']
     },
     {
         label: 'Anomalous Activity', tone: 'danger',
-        events: ['SCP-096 Emotional Agitation', 'SCP-049 Plague Doctor Diagnosis', 'SCP-966 Sleep Paralysis Event', 'SCP-914 Refinement Cycle Started', 'SCP-682 Containment Failure', 'SCP-173 Blink Protocol Violation']
+        events: [
+            'SCP-173 Blink Protocol Violation',
+            'SCP-096 Emotional Agitation',
+            'SCP-049 Plague Doctor Diagnosis',
+            'SCP-106 Pocket Dimension Drag',
+            'SCP-106 Teleportation',
+            'SCP-076-2 Reanimation & Breach',
+            'SCP-457 Thermodynamic Expansion',
+            'SCP-939 Auditory Mimicry Lure',
+            'SCP-914 Refinement Cycle Started',
+            'SCP-035 Host Possession',
+            'SCP-2521 Test Subject Abduction',
+            'SCP-999 Euphoria Effect Triggered',
+            'SCP-093 Mirror Portal Activation',
+            'SCP-2006 Transformation'
+        ]
     }
 ];
 
@@ -79,7 +107,7 @@ const THREAT_OPTS = [
     { v: 'High', l: 'alerts.high', tone: 'red' }
 ];
 const CDC_OPTS = [
-    { v: 'Unknown', l: 'alerts.unknown', tone: 'muted' },
+    // { v: 'Unknown', l: 'alerts.unknown', tone: 'muted' },
     { v: 'On', l: 'alerts.on', tone: 'red' },
     { v: 'Off', l: 'alerts.off', tone: 'green' }
 ];
@@ -319,6 +347,7 @@ const SESSION_STORAGE_KEY = 'ssrp_session';
 const Session = {
     token: null, userId: null, username: null, name: null,
     roleCode: null, roleName: null, clearance: 0, mustChangePassword: false,
+    permissions: [],
     _rememberMe: false,
 
     isActive() { return !!this.token; },
@@ -348,6 +377,7 @@ const Session = {
     clear() {
         this.token = null; this.userId = null; this.username = null; this.name = null;
         this.roleCode = null; this.roleName = null; this.clearance = 0; this.mustChangePassword = false;
+        this.permissions = [];
         try { localStorage.removeItem(SESSION_STORAGE_KEY); sessionStorage.removeItem(SESSION_STORAGE_KEY); } catch { /* ignore */ }
     },
 
@@ -358,10 +388,13 @@ const Session = {
         Views.showLogin();
     },
 
-    canPerform(action) {
-        const allowed = OPS_PERMISSIONS[action];
-        if (!allowed) return true;
-        return allowed.includes(this.roleCode);
+    /** Granular, per-action check against this session's *effective*
+     *  permissions (role default, role override, or user override —
+     *  already resolved server-side and handed to us at login/whoami).
+     *  Every action is checked individually; there is no blanket
+     *  role→allowed-list mirror on the client anymore. */
+    can(action) {
+        return matchesPermission(this.permissions, action);
     },
 
     /** Clearance levels this session is allowed to assign to a log's
@@ -541,7 +574,15 @@ const Api = {
     createLogSession: () => Api.req('POST', '/api/log-sessions'),
 
     getContainmentOverrides: () => Api.req('GET', '/api/containment', undefined, { skipQueue: true }),
-    setContainmentStatus: (scp, status) => Api.req('PUT', `/api/containment/${scp}`, { status })
+    setContainmentStatus: (scp, status) => Api.req('PUT', `/api/containment/${scp}`, { status }),
+
+    adminGetPermissionCatalog: () => Api.req('GET', '/api/admin/permissions/catalog', undefined, { skipQueue: true }),
+    adminGetRolePermissions: role => Api.req('GET', `/api/admin/permissions/roles/${role}`, undefined, { skipQueue: true }),
+    adminSetRolePermissions: (role, permissions) => Api.req('PUT', `/api/admin/permissions/roles/${role}`, { permissions }, { skipQueue: true }),
+    adminResetRolePermissions: role => Api.req('POST', `/api/admin/permissions/roles/${role}/reset`, undefined, { skipQueue: true }),
+    adminGetUserPermissions: id => Api.req('GET', `/api/admin/permissions/users/${id}`, undefined, { skipQueue: true }),
+    adminSetUserPermissions: (id, permissions) => Api.req('PUT', `/api/admin/permissions/users/${id}`, { permissions }, { skipQueue: true }),
+    adminResetUserPermissions: id => Api.req('POST', `/api/admin/permissions/users/${id}/reset`, undefined, { skipQueue: true })
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -611,8 +652,8 @@ const Heartbeat = {
 const INITIAL_WORKING_STATE = {
     scp: '', sector: '',
     timeline: [], manualLogs: [],
-    startAlarmLevel: 'None', startThreatLevel: 'Low', startCDCAlert: 'Unknown',
-    currentAlarmLevel: 'None', currentThreatLevel: 'Low', currentCDCAlert: 'Unknown',
+    startAlarmLevel: 'None', startThreatLevel: 'Low', startCDCAlert: 'Off',
+    currentAlarmLevel: 'None', currentThreatLevel: 'Low', currentCDCAlert: 'Off',
     finalStatus: 'Success', finalSubStatus: '',
     termSec: 0, termScp: 0, persLost: 0,
     requiredClearance: 1, location: 'c1',
@@ -1405,7 +1446,7 @@ const LogForm = {
      *  regardless of their base clearance (rule #3). */
     renderRoleOverrideGrid() {
         const grid = document.getElementById('roleOverrideGrid');
-        grid.innerHTML = Object.entries(ROLE_CLEARANCE).map(([code, clearance]) => `
+        grid.innerHTML = Roles.list.map(({ code, clearance }) => `
       <label class="check-item" style="padding:6px 10px">
         <input type="checkbox" data-role-override="${code}" ${S.w.roleOverrides.includes(code) ? 'checked' : ''}>
         <div class="check-box"></div>
@@ -1629,9 +1670,9 @@ const Dashboard = {
         </div>
       </div>
       <div class="record-card__foot">
-        <button class="btn btn--ghost btn--xs" data-action="edit-log" data-id="${escHtml(log.id)}"><svg class="icon icon--sm"><use href="#icon-edit"/></svg></button>
-        <button class="btn btn--ghost btn--xs" data-action="export-log" data-id="${escHtml(log.id)}"><svg class="icon icon--sm"><use href="#icon-download"/></svg></button>
-        <button class="btn btn--danger btn--xs" data-action="delete-log" data-id="${escHtml(log.id)}"><svg class="icon icon--sm"><use href="#icon-trash"/></svg></button>
+        ${Session.can('EDIT:TEST') ? `<button class="btn btn--ghost btn--xs" data-action="edit-log" data-id="${escHtml(log.id)}"><svg class="icon icon--sm"><use href="#icon-edit"/></svg></button>` : ''}
+        ${Session.can('EXPORT:TEST') ? `<button class="btn btn--ghost btn--xs" data-action="export-log" data-id="${escHtml(log.id)}"><svg class="icon icon--sm"><use href="#icon-download"/></svg></button>` : ''}
+        ${Session.can('DELETE:TEST') ? `<button class="btn btn--danger btn--xs" data-action="delete-log" data-id="${escHtml(log.id)}"><svg class="icon icon--sm"><use href="#icon-trash"/></svg></button>` : ''}
       </div>
     </article>`;
     },
@@ -1757,7 +1798,7 @@ const ContainmentBoard = {
         <div class="containment-card__name">${escHtml(r.data.name || '')}</div>
         <div><span class="containment-status-pill containment-status-pill--${r.status}">${statusLabel[r.status]}</span></div>
         ${r.status === 'investigation' ? `
-        <div class="containment-card__actions" onclick="event.stopPropagation()">
+        <div class="containment-card__actions">
           <button class="btn btn--danger btn--xs" data-action="resolve-containment" data-scp="${escHtml(r.num)}" data-status="breached">Breached</button>
           <button class="btn btn--success btn--xs" data-action="resolve-containment" data-scp="${escHtml(r.num)}" data-status="secure">Fine</button>
         </div>` : ''}
@@ -1765,8 +1806,7 @@ const ContainmentBoard = {
     },
 
     async resolve(scp, status) {
-        const action = status === 'breached' ? 'BREACH' : 'BREACH_END';
-        if (!Session.canPerform(action)) { denyOpsAction(action); return; }
+        if (!Session.can('MANAGE:CONTAINMENT')) { denyOpsAction('MANAGE:CONTAINMENT'); return; }
         try {
             await Api.setContainmentStatus(scp, status);
             Toast.show(`SCP-${scp} marked ${status === 'breached' ? 'Breached' : 'Fine'}`, status === 'breached' ? 'error' : 'success');
@@ -1778,16 +1818,35 @@ const ContainmentBoard = {
 /* ═══════════════════════════════════════════════════════════════════════════
    ADMIN USER DASHBOARD
    ═══════════════════════════════════════════════════════════════════════ */
+const STATUS_TONE = { PENDING: 'yellow', ACTIVE: 'green', SUSPENDED: 'orange', LOCKED: 'red' };
+
 const Admin = {
     _users: [],
+    _tab: 'users',
+    _permCatalog: [],
+    _permTargetRole: null,
+    _permTargetUser: null,
 
     async render() {
+        this._tab = 'users';
+        await this._renderUsers();
+    },
+
+    _switchTab(tab) {
+        this._tab = tab;
+        document.querySelectorAll('.admin-tab').forEach(el => el.classList.toggle('is-active', el.dataset.tab === tab));
+        document.getElementById('adminUsersPane').classList.toggle('hidden', tab !== 'users');
+        document.getElementById('adminPermissionsPane').classList.toggle('hidden', tab !== 'permissions');
+        if (tab === 'permissions') this._renderPermissions();
+    },
+
+    async _renderUsers() {
         try { this._users = await Api.adminListUsers(); }
         catch { this._users = []; }
         document.getElementById('adminResultCount').textContent = `${this._users.length} users`;
 
-        const roleOptions = Object.entries(ROLE_CLEARANCE)
-            .map(([code]) => `<option value="${code}">${code}</option>`).join('');
+        const roleOptions = Roles.list.map(({ code }) => `<option value="${code}">${code}</option>`).join('');
+        const statusOptions = ['PENDING', 'ACTIVE', 'SUSPENDED', 'LOCKED'].map(s => `<option value="${s}">${s}</option>`).join('');
 
         const table = document.getElementById('adminUserTable');
         if (!this._users.length) {
@@ -1795,50 +1854,54 @@ const Admin = {
             return;
         }
         table.innerHTML = `
-      <div class="admin-table-head"><span>User</span><span>Role</span><span>Clearance</span><span>Approved</span><span></span></div>
-      ${this._users.map(u => `
-        <div class="admin-row admin-row--${u.approved ? 'approved' : 'pending'}">
+      <div class="admin-table-head"><span>User</span><span>Role</span><span>Clearance</span><span>Status</span><span></span></div>
+      ${this._users.map(u => {
+          const isSelf = u.id === Session.userId;
+          return `
+        <div class="admin-row admin-row--${(u.status || 'pending').toLowerCase()}">
           <div class="admin-row__user">
-            <span class="admin-row__username">${escHtml(u.username)}</span>
+            <span class="admin-row__username">${escHtml(u.username)}${isSelf ? ' <span style="color:var(--text-dim);font-weight:400">(you)</span>' : ''}</span>
             <span class="admin-row__name">${escHtml(u.displayName || '')}${u.mustChangePassword ? ' · <span style="color:var(--caution)">pending pw change</span>' : ''}</span>
           </div>
-          <select class="admin-row__role-select" data-admin-field="role" data-id="${escHtml(u.id)}">
+          <select class="admin-row__role-select" data-admin-field="role" data-id="${escHtml(u.id)}" ${isSelf ? 'disabled' : ''}>
             <option value="">— none —</option>
             ${roleOptions}
           </select>
-          <select class="admin-row__clearance-select" data-admin-field="clearance" data-id="${escHtml(u.id)}">
+          <select class="admin-row__clearance-select" data-admin-field="clearance" data-id="${escHtml(u.id)}" ${isSelf ? 'disabled' : ''}>
             ${[0, 1, 2, 3, 4, 5, 6].map(n => `<option value="${n}">${n}</option>`).join('')}
           </select>
-          <label class="chip-toggle${u.approved ? ' is-on' : ''}" style="height:32px">
-            <input type="checkbox" data-admin-field="approved" data-id="${escHtml(u.id)}" ${u.approved ? 'checked' : ''}>
-            <span>${u.approved ? 'Approved' : 'Pending'}</span>
-          </label>
+          <select class="admin-row__clearance-select" data-admin-field="status" data-id="${escHtml(u.id)}" ${isSelf ? 'disabled' : ''}>
+            ${statusOptions}
+          </select>
           <div class="admin-row__actions">
-            <button class="btn btn--ghost btn--xs" data-action="admin-reset-password" data-id="${escHtml(u.id)}" title="Reset password"><svg class="icon icon--sm"><use href="#icon-save"/></svg></button>
-            <button class="btn btn--danger btn--xs" data-action="admin-delete-user" data-id="${escHtml(u.id)}" title="Delete account"><svg class="icon icon--sm"><use href="#icon-trash"/></svg></button>
+            <button class="btn btn--ghost btn--xs" data-action="admin-edit-permissions" data-id="${escHtml(u.id)}" title="Edit permission overrides" ${isSelf ? 'disabled' : ''}><svg class="icon icon--sm"><use href="#icon-lock"/></svg></button>
+            <button class="btn btn--ghost btn--xs" data-action="admin-reset-password" data-id="${escHtml(u.id)}" title="Reset password" ${isSelf ? 'disabled' : ''}><svg class="icon icon--sm"><use href="#icon-save"/></svg></button>
+            <button class="btn btn--danger btn--xs" data-action="admin-delete-user" data-id="${escHtml(u.id)}" title="Delete account" ${isSelf ? 'disabled' : ''}><svg class="icon icon--sm"><use href="#icon-trash"/></svg></button>
           </div>
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
     `;
 
-        // Pre-select current values (native <select> can't take a "selected" attribute dynamically as cleanly as this)
         this._users.forEach(u => {
             const roleSel = table.querySelector(`select[data-admin-field="role"][data-id="${CSS.escape(u.id)}"]`);
             const clSel = table.querySelector(`select[data-admin-field="clearance"][data-id="${CSS.escape(u.id)}"]`);
+            const stSel = table.querySelector(`select[data-admin-field="status"][data-id="${CSS.escape(u.id)}"]`);
             if (roleSel) roleSel.value = u.roleCode || '';
             if (clSel) clSel.value = String(u.clearance ?? 0);
+            if (stSel) stSel.value = u.status || 'PENDING';
         });
 
         table.querySelectorAll('[data-admin-field="role"]').forEach(el => el.addEventListener('change', e => this.updateUser(e.target.dataset.id, { roleCode: e.target.value || null })));
         table.querySelectorAll('[data-admin-field="clearance"]').forEach(el => el.addEventListener('change', e => this.updateUser(e.target.dataset.id, { clearance: parseInt(e.target.value) })));
-        table.querySelectorAll('[data-admin-field="approved"]').forEach(el => el.addEventListener('change', e => this.updateUser(e.target.dataset.id, { approved: e.target.checked })));
+        table.querySelectorAll('[data-admin-field="status"]').forEach(el => el.addEventListener('change', e => this.updateUser(e.target.dataset.id, { status: e.target.value })));
     },
 
     async updateUser(id, patch) {
         try {
             await Api.adminUpdateUser(id, patch);
             Toast.show('User updated', 'success');
-            this.render();
-        } catch { /* toast already shown */ }
+            this._renderUsers();
+        } catch { /* toast already shown; re-render so a rejected self-edit (400) visually reverts */ this._renderUsers(); }
     },
 
     async resetPassword(id) {
@@ -1846,7 +1909,7 @@ const Admin = {
             const { tempPassword } = await Api.adminResetPassword(id);
             document.getElementById('tempPasswordDisplay').textContent = tempPassword;
             Modal.open('temp-password');
-            this.render();
+            this._renderUsers();
         } catch { /* toast already shown */ }
     },
 
@@ -1856,10 +1919,101 @@ const Admin = {
         try {
             await Api.adminDeleteUser(id);
             Toast.show('User deleted', 'success');
-            this.render();
+            this._renderUsers();
+        } catch { /* toast already shown */ }
+    },
+
+    /* ── Permission Management sub-view ─────────────────────────────── */
+
+    async _renderPermissions() {
+        try { this._permCatalog = (await Api.adminGetPermissionCatalog()).actions; }
+        catch { this._permCatalog = []; }
+        if (!this._permTargetRole) this._permTargetRole = Roles.list[0]?.code || null;
+
+        document.getElementById('permRoleSelect').innerHTML = Roles.list.map(r => `<option value="${r.code}">${r.code} — ${escHtml(r.name)}</option>`).join('');
+        document.getElementById('permRoleSelect').value = this._permTargetRole;
+        await this._renderRolePermissionGrid();
+    },
+
+    async selectRole(role) {
+        this._permTargetRole = role;
+        await this._renderRolePermissionGrid();
+    },
+
+    async _renderRolePermissionGrid() {
+        if (!this._permTargetRole) return;
+        let data;
+        try { data = await Api.adminGetRolePermissions(this._permTargetRole); }
+        catch { return; }
+
+        document.getElementById('permRoleCustomizedTag').classList.toggle('hidden', !data.isCustomized);
+        const grid = document.getElementById('permRoleGrid');
+        grid.innerHTML = this._permCatalog.map(action => `
+      <label class="check-item" style="padding:8px 10px">
+        <input type="checkbox" data-perm-action="${escHtml(action)}" ${matchesPermission(data.permissions, action) ? 'checked' : ''}>
+        <div class="check-box"></div>
+        <span class="check-item__label" style="font-family:var(--f-mono);font-size:11px">${escHtml(action)}</span>
+      </label>`).join('');
+    },
+
+    async saveRolePermissions() {
+        const checked = [...document.querySelectorAll('#permRoleGrid [data-perm-action]:checked')].map(el => el.dataset.permAction);
+        try {
+            await Api.adminSetRolePermissions(this._permTargetRole, checked);
+            Toast.show(`Permissions updated for ${this._permTargetRole}`, 'success');
+            this._renderRolePermissionGrid();
+        } catch { /* toast already shown (includes the ADMIN-role lockout guard message) */ }
+    },
+
+    async resetRolePermissions() {
+        const ok = await ConfirmDialog.ask(`Reset ${this._permTargetRole} to JSON-config defaults?`, 'Any customizations for this role will be discarded.');
+        if (!ok) return;
+        try {
+            await Api.adminResetRolePermissions(this._permTargetRole);
+            Toast.show(`${this._permTargetRole} reset to defaults`, 'success');
+            this._renderRolePermissionGrid();
+        } catch { /* toast already shown */ }
+    },
+
+    async openUserPermissionEditor(userId) {
+        this._permTargetUser = userId;
+        const user = this._users.find(u => u.id === userId);
+        if (!this._permCatalog.length) {
+            try { this._permCatalog = (await Api.adminGetPermissionCatalog()).actions; } catch { /* modal will just show nothing */ }
+        }
+        let data;
+        try { data = await Api.adminGetUserPermissions(userId); }
+        catch { Toast.show('Failed to load permissions', 'error'); return; }
+
+        document.getElementById('userPermTitle').textContent = `Permissions — ${user?.username || 'user'}`;
+        document.getElementById('userPermCustomizedTag').classList.toggle('hidden', !data.isCustomized);
+        document.getElementById('userPermGrid').innerHTML = this._permCatalog.map(action => `
+      <label class="check-item" style="padding:8px 10px">
+        <input type="checkbox" data-perm-action="${escHtml(action)}" ${matchesPermission(data.permissions, action) ? 'checked' : ''}>
+        <div class="check-box"></div>
+        <span class="check-item__label" style="font-family:var(--f-mono);font-size:11px">${escHtml(action)}</span>
+      </label>`).join('');
+        Modal.open('user-permissions');
+    },
+
+    async saveUserPermissions() {
+        const checked = [...document.querySelectorAll('#userPermGrid [data-perm-action]:checked')].map(el => el.dataset.permAction);
+        try {
+            await Api.adminSetUserPermissions(this._permTargetUser, checked);
+            Toast.show('User permission override saved', 'success');
+            Modal.close('user-permissions');
+        } catch { /* toast already shown */ }
+    },
+
+    async resetUserPermissions() {
+        try {
+            await Api.adminResetUserPermissions(this._permTargetUser);
+            Toast.show('User override cleared — now inherits role permissions', 'success');
+            this.openUserPermissionEditor(this._permTargetUser);
         } catch { /* toast already shown */ }
     }
 };
+
 
 /* ═══════════════════════════════════════════════════════════════════════════
    FACILITY SESSIONS  ("Log Sessions" — server-hop reset grouping)
@@ -2066,6 +2220,10 @@ const Detail = {
         <div class="sig-block__line">Signed: <span class="sig-block__name">Researcher ${escHtml(log.researcherName || 'N/A')}</span> &nbsp;|&nbsp; ${escHtml(log.researcherRank || 'N/A')} &nbsp;|&nbsp; <span style="color:var(--text-dim)">${date}</span></div>
         <div style="font-size:10px;color:var(--text-dim);margin-top:4px">Log ID: ${escHtml(log.id)}</div>
       </div>`;
+
+        document.getElementById('detailExportBtn').classList.toggle('hidden', !Session.can('EXPORT:TEST'));
+        document.getElementById('detailEditBtn').classList.toggle('hidden', !Session.can('EDIT:TEST'));
+        document.getElementById('detailDeleteBtn').classList.toggle('hidden', !Session.can('DELETE:TEST'));
     }
 };
 
@@ -2233,11 +2391,11 @@ const OpsConsole = {
     applyPermissionGating() {
         document.querySelectorAll('[data-ops-action]').forEach(btn => {
             const action = btn.dataset.opsAction;
-            const allowed = Session.canPerform(action);
+            const allowed = Session.can(action);
             btn.disabled = !allowed;
             btn.classList.toggle('is-locked', !allowed);
             btn.querySelector('.drawer__lock')?.classList.toggle('hidden', allowed);
-            btn.title = allowed ? '' : `Requires: ${(OPS_PERMISSIONS[action] || []).join(', ')}`;
+            btn.title = allowed ? '' : `Missing permission: ${action}`;
         });
     },
 
@@ -2537,13 +2695,11 @@ const RealtimeFeed = {
     _onEventCreated(ev) {
         if (!S.events.some(e => e.id === ev.id)) S.events.unshift(ev);
         if (!this._isSelf(ev)) Toast.show(`Facility event received: ${ev.type}`, 'info');
-        StatusStrip.syncAll();
         if (document.getElementById('view-dashboard').classList.contains('is-active')) Dashboard.render();
     },
 
     _onEventDeleted({ id }) {
         S.events = S.events.filter(e => e.id !== id);
-        StatusStrip.syncAll();
         if (document.getElementById('view-dashboard').classList.contains('is-active')) Dashboard.render();
     }
 };
@@ -2745,10 +2901,13 @@ const Views = {
         document.getElementById('sessionBadge').classList.remove('hidden');
         document.getElementById('topbarAuthActions').classList.remove('hidden');
         document.getElementById('adminNavBtn').classList.toggle('hidden', !Session.isAdmin());
+        document.getElementById('terminal-div').classList.toggle('hidden', !Session.isAdmin());
+        document.getElementById('newLogBtn').classList.toggle('hidden', !Session.can('CREATE:TEST'));
         document.getElementById('sessionBadgeRole').textContent = Session.roleCode;
         document.getElementById('sessionBadgeName').textContent = Session.name;
         document.getElementById('sessionMenuName').textContent = Session.name;
         document.getElementById('sessionMenuRole').textContent = `${Session.roleName} — Clearance ${Session.clearance}`;
+        await Roles.load();
         await this.showDashboard();
         StatusStrip.syncAll();
         RealtimeFeed.connect();
@@ -2768,6 +2927,10 @@ const Views = {
         StatusStrip.syncAll();
         Dashboard.render();
         this._activate('view-dashboard');
+    },
+
+    async showBroadcast() {
+        document.location.href = "/broadcast";
     },
 
     showCreate(existingLog = null) {
@@ -2830,7 +2993,6 @@ const Views = {
    ACTION DISPATCH  (single delegated click handler)
    ═══════════════════════════════════════════════════════════════════════ */
 function handleAction(action, el) {
-    // console.log(`action: ${action}\nel.dataset: ${JSON.stringify(el.dataset, null, 2)}\n\nel: ${el.outerHTML}`);
     const d = el.dataset;
     switch (action) {
         case 'new-log': Views.showCreate(); break;
@@ -2838,7 +3000,7 @@ function handleAction(action, el) {
         case 'toggle-drawer': Drawer.toggle(); break;
         case 'close-modal': Modal.closeTop(); break;
         case 'open-modal':
-            if (d.opsAction && !Session.canPerform(d.opsAction)) { denyOpsAction(d.opsAction); break; }
+            if (d.opsAction && !Session.can(d.opsAction)) { denyOpsAction(d.opsAction); break; }
             Drawer.close();
             if (d.modal === 'breach') OpsConsole.openBreachModal();
             else if (d.modal === 'breach-end') OpsConsole.openBreachEndModal();
@@ -2850,7 +3012,7 @@ function handleAction(action, el) {
             else Modal.open(d.modal);
             break;
         case 'cdc-riot':
-            if (!Session.canPerform('CDC_RIOT')) { denyOpsAction('CDC_RIOT'); break; }
+            if (!Session.can('MANAGE:CDC_RIOT')) { denyOpsAction('MANAGE:CDC_RIOT'); break; }
             Drawer.close(); OpsConsole.submitCdcRiot(); break;
 
         case 'pick-scp': ScpPicker.select(d.mode, d.num); break;
@@ -2922,6 +3084,7 @@ function handleAction(action, el) {
 
         case 'show-board': Views.showBoard(); break;
         case 'show-admin': Views.showAdmin(); break;
+        case 'show-broadcast': Views.showBroadcast(); break;
         case 'board-open-scp':
             document.getElementById('filterSearch').value = d.scp;
             Views.showDashboard();
@@ -2943,6 +3106,12 @@ function handleAction(action, el) {
 
         case 'admin-reset-password': Admin.resetPassword(d.id); break;
         case 'admin-delete-user': Admin.deleteUser(d.id); break;
+        case 'admin-switch-tab': Admin._switchTab(d.tab); break;
+        case 'admin-edit-permissions': Admin.openUserPermissionEditor(d.id); break;
+        case 'admin-save-role-permissions': Admin.saveRolePermissions(); break;
+        case 'admin-reset-role-permissions': Admin.resetRolePermissions(); break;
+        case 'admin-save-user-permissions': Admin.saveUserPermissions(); break;
+        case 'admin-reset-user-permissions': Admin.resetUserPermissions(); break;
 
         case 'pdf-current': { const log = S.logs.find(l => l.id === S.currentId); if (log) ReportGenerator.generateLogReport(log); break; }
         case 'pdf-event': { const ev = S.events.find(e => e.id === d.id); if (ev) ReportGenerator.generateBreachReport(ev); break; }
@@ -2965,8 +3134,7 @@ async function doLogout() {
  *  current role can't perform — shown immediately, client-side, instead
  *  of waiting for a round trip the server would reject anyway. */
 function denyOpsAction(action) {
-    const requiredRoles = (OPS_PERMISSIONS[action] || []).join(', ');
-    const msg = `${Session.roleName} (${Session.roleCode}) is not authorized to perform ${action}. Requires: ${requiredRoles}.`;
+    const msg = `${Session.roleName} (${Session.roleCode}) is missing the required permission: ${action}.`;
     Toast.show(msg, 'error');
     SystemOverlay.show(new Error(msg), 'FORBIDDEN', 'forbidden');
 }
@@ -3085,6 +3253,9 @@ function wireStaticListeners() {
     const rerenderBoard = debounce(() => ContainmentBoard.render(), 120);
     document.getElementById('boardSearch').addEventListener('input', rerenderBoard);
     document.getElementById('boardStatusFilter').addEventListener('change', () => ContainmentBoard.render());
+
+    // Admin permission matrix — role selector
+    document.getElementById('permRoleSelect').addEventListener('change', e => Admin.selectRole(e.target.value));
 
     initShortcuts();
 }

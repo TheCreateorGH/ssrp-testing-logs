@@ -1,4 +1,7 @@
-/** Foundation roles, each with a fixed clearance level 0-6. */
+/** Foundation roles, each with a fixed clearance level 0-6.
+ *  NOTE: action-level permissions no longer live here — see
+ *  data/permissions_config.json + src/services/permission.service.js.
+ *  This file is now only the identity/clearance reference. */
 const ROLES = {
     SD: { code: 'SD', name: 'Security Department', clearance: 1 },
     MD: { code: 'MD', name: 'Medical Department', clearance: 1 },
@@ -12,27 +15,8 @@ const ROLES = {
     ADMIN: { code: 'ADMIN', name: 'The Administrator', clearance: 6 }
 };
 
-/** Which roles may trigger each Ops Console action. Enforced both here
- *  (server-side, authoritative) and mirrored client-side for UI gating. */
-const OPS_PERMISSIONS = {
-    BREACH: ['ISD', 'MTF', 'RRT', 'SiD', 'O5', 'ADMIN'],
-    BREACH_END: ['ISD', 'MTF', 'RRT', 'SiD', 'O5', 'ADMIN'],
-    CDC_RIOT: ['ISD', 'SD', 'SiD', 'O5', 'ADMIN'],
-    ALARM: ['ISD', 'SiD', 'O5', 'ADMIN'],
-    THREAT: ['ISD', 'IA', 'SiD', 'O5', 'ADMIN'],
-    CDC: ['MD', 'ISD', 'SiD', 'O5', 'ADMIN'],
-    BROADCAST: ['SiD', 'O5', 'ADMIN', 'IA'],
-    WARHEAD: ['O5', 'ADMIN']
-};
-
 function getRole(code) {
     return ROLES[code] || null;
 }
 
-function canPerform(action, roleCode) {
-    const allowed = OPS_PERMISSIONS[action];
-    if (!allowed) return true; // ungated event types (e.g. plain manual events) are always allowed
-    return allowed.includes(roleCode);
-}
-
-module.exports = { ROLES, OPS_PERMISSIONS, getRole, canPerform };
+module.exports = { ROLES, getRole };

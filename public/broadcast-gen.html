@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>☣ SSRP — Site Security Reporting Platform</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="broadcastPage.css">
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.terminal/js/jquery.terminal.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jquery.terminal/css/jquery.terminal.min.css"/>
+</head>
+<body>
+
+<main>
+    <div class="container">
+        <h1>Broadcast Generator</h1>
+
+        <div id="alarmGroup">
+            <div class="field">
+                <label class="field__label" for="alarmType">Alarm Type</label>
+                <select id="alarmType">
+                    <option value="none">None</option>
+                    <option value="cd">Class D Escape</option>
+                    <option value="ci">Chaos Insurgency</option>
+                    <option value="breach">Breach</option>
+                    <option value="lockdown">Site Lockdown</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="threadType">Threat Level</label>
+                <select id="threadType">
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="cdcStatus">CDC Status</label>
+                <select id="cdcStatus">
+                    <option value="off">Off</option>
+                    <option value="on">On</option>
+                </select>
+            </div>
+        </div>
+
+
+        <label class="field__label">Breach Count</label>
+        <div class="num-field field">
+            <input type="number" id="breachCount" value="0" min="0" max="20" style="width: 250px;">
+            <div class="num-stepper"><button type="button" class="num-stepper__btn" data-action="num-step" data-target="breachCount" data-dir="1" aria-label="Increase"><svg class="icon icon--flip"><use href="#icon-chevron-down"/></svg></button><button type="button" class="num-stepper__btn" data-action="num-step" data-target="breachCount" data-dir="-1" aria-label="Decrease"><svg class="icon"><use href="#icon-chevron-down"/></svg></button></div>
+        </div>
+
+        <div id="testingStatus">
+            <div class="field">
+                <label class="field__label" for="testingStatus">Testing</label>
+                <select id="testingStatus">
+                    <option value="0">Allowed</option>
+                    <!-- <option value="1">With SiD+ Permission</option> -->
+                    <option value="2">Halted</option>
+                    <option value="3">Forbidden</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="dangerTestingStatus">CX & LCX Testing</label>
+                <select id="dangerTestingStatus">
+                    <option value="0">Allowed</option>
+                    <option value="1">With SiD+ Permission</option>
+                    <option value="2">Halted</option>
+                    <option value="3">Forbidden</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="threadCountSelection">
+            <label class="field__label">CI Count</label>
+            <div class="num-field field">
+                <input type="number" id="ciCount" value="0" min="0" max="20">
+                <div class="num-stepper"><button type="button" class="num-stepper__btn" data-action="num-step" data-target="ciCount" data-dir="1" aria-label="Increase"><svg class="icon icon--flip"><use href="#icon-chevron-down"/></svg></button><button type="button" class="num-stepper__btn" data-action="num-step" data-target="ciCount" data-dir="-1" aria-label="Decrease"><svg class="icon"><use href="#icon-chevron-down"/></svg></button></div>
+            </div>
+            
+            <label class="field__label">CD Count</label>
+            <div class="num-field field">
+                <input type="number" id="cdCount" value="0" min="0" max="20">
+                <div class="num-stepper"><button type="button" class="num-stepper__btn" data-action="num-step" data-target="cdCount" data-dir="1" aria-label="Increase"><svg class="icon icon--flip"><use href="#icon-chevron-down"/></svg></button><button type="button" class="num-stepper__btn" data-action="num-step" data-target="cdCount" data-dir="-1" aria-label="Decrease"><svg class="icon"><use href="#icon-chevron-down"/></svg></button></div>
+            </div>
+        </div>
+
+        <input type="text" id="broadcastText" placeholder="Notes / Additional Infos" style="width: 100%; margin-top: 10px; margin-bottom: 10px;">
+
+        <div id="buttonMatrixEnd">
+            <button id="generateBroadcast">Generate Broadcast</button>
+            <button id="backToConsole">Back to Console</button>
+        </div>
+    </div>
+
+    <div class="container" id="broadcastContainer">
+        <h1>Broadcast</h1>
+        <div class="output-box" style="opacity: .5;">
+            <button class="copyBcButton" id="copyBroadcast" aria-label="Copy Broadcast"><svg class="icon"><use href="#icon-copy"/></svg></button>
+            <div id="broadcastOutput">Start Configuring or Press Button to Generate Broadcast</div>
+        </div>
+        <div class="output-box">
+            <button class="copyBcButton" id="copyBroadcast2" aria-label="Copy Command"><svg class="icon"><use href="#icon-copy"/></svg></button>
+            <div id="broadcastCommandOutput">Start Configuring or Press Button to Generate Broadcast</div>
+        </div>
+    </div>
+</main>
+
+<svg>
+    <defs style="display:none" aria-hidden="true">
+        <symbol id="icon-chevron-down" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="icon-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+        <symbol id="icon-tick" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="icon-alert-triangle" viewBox="0 0 24 24"><path d="M12 4 2 20h20Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><line x1="12" y1="10" x2="12" y2="14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17.2" r="1" fill="currentColor" stroke="none"/></symbol>
+    </defs>
+</svg>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="app.js"></script>
+<script src="broadcastPage.js"></script>
+</body>
+</html>

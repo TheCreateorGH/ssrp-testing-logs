@@ -82,6 +82,42 @@ const MATRIX = {
     "939|207": {
         risk: "high",
         reason: "SCP-939 will be attracted to SCP-207."
+    },
+    "1370|017": {
+        risk: "forbidden",
+        reason: "SCP-1370 will destroy the generator."
+    },
+    "1370|2006": {
+        risk: "forbidden",
+        reason: "SCP-1370 tries to anger 2006 (staying in the RED circle)."
+    },
+    "1370|939": {
+        risk: "forbidden",
+        reason: "SCP-1370 will make loud sounds near the player to attract SCP-939."
+    },
+    "1370|096": {
+        risk: "high",
+        reason: "SCP-1370 will unbag 096 if bagged."
+    },
+    "1370|049": {
+        risk: "high",
+        reason: "SCP-1370 will anger 049."
+    },
+    "1370|403": {
+        risk: "high",
+        reason: "SCP-1370 will steal 403 from the player and tries to explode him."
+    },
+    "1370|207": {
+        risk: "high",
+        reason: "SCP-1370 will steal 207 from the player and drink it, becomming faster."
+    },
+    "1370|035":  {
+        risk: "forbidden",
+        reason: "SCP-137ß will turn into Doombot and kill everyone."
+    },
+    "1370|034": {
+        risk: "low",
+        reason: "SCP-1370 will snitch on the disguised player with specific text lines."
     }
 
 };

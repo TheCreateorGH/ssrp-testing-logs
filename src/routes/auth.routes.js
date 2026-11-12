@@ -1,14 +1,14 @@
 const { Router } = require('express');
 const ctrl = require('../controllers/auth.controller');
-const { attachSession, requireAuth } = require('../middleware/auth.middleware');
+const { verifyIdentity } = require('../middleware/permission.middleware');
 
 const router = Router();
 
 router.get('/roles', ctrl.listRoles);
 router.post('/register', ctrl.register);
 router.post('/login', ctrl.login);
-router.get('/whoami', attachSession, requireAuth, ctrl.whoami);
-router.post('/logout', attachSession, ctrl.logout);
-router.post('/change-password', attachSession, requireAuth, ctrl.changePassword);
+router.get('/whoami', verifyIdentity, ctrl.whoami);
+router.post('/logout', ctrl.logout); // intentionally doesn't require a *valid* session — logging out an already-stale token should still succeed
+router.post('/change-password', verifyIdentity, ctrl.changePassword);
 
 module.exports = router;

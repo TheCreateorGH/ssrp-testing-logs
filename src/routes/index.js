@@ -2,6 +2,7 @@ const { Router } = require('express');
 
 const authRoutes = require('./auth.routes');
 const adminRoutes = require('./admin.routes');
+const permissionRoutes = require('./permission.routes');
 const logsRoutes = require('./logs.routes');
 const eventsRoutes = require('./events.routes');
 const scpsRoutes = require('./scps.routes');
@@ -12,22 +13,32 @@ const scheduleRoutes = require('./schedule.routes');
 const crossTestRoutes = require('./crosstest.routes');
 const logSessionRoutes = require('./logsession.routes');
 const containmentRoutes = require('./containment.routes');
+const controlRoutes = require('./control.routes');
+const { verifyIdentity, requirePermission } = require('../middleware/permission.middleware');
 const { requireAuth } = require('../middleware/auth.middleware');
 
 const router = Router();
 
 router.use('/auth', authRoutes);
 
-router.use('/admin', requireAuth, adminRoutes);
-router.use('/logs', requireAuth, logsRoutes);
-router.use('/events', requireAuth, eventsRoutes);
-router.use('/scps', requireAuth, scpsRoutes);
-router.use('/settings', requireAuth, settingsRoutes);
-router.use('/import', requireAuth, importRoutes);
-router.use('/stream', requireAuth, streamRoutes);
-router.use('/schedules', requireAuth, scheduleRoutes);
-router.use('/cross-test', requireAuth, crossTestRoutes);
-router.use('/log-sessions', requireAuth, logSessionRoutes);
-router.use('/containment', requireAuth, containmentRoutes);
+// Every route below re-validates identity + status against the
+// persistent user store on every single request (verifyIdentity),
+// then (where applicable) checks a granular per-action permission.
+router.use('/admin/users', verifyIdentity, requirePermission('ADMIN:USERS'), adminRoutes);
+router.use('/admin/permissions', verifyIdentity, permissionRoutes);
+
+router.use('/logs', verifyIdentity, logsRoutes);
+router.use('/events', verifyIdentity, eventsRoutes);
+router.use('/scps', verifyIdentity, scpsRoutes);
+router.use('/settings', verifyIdentity, settingsRoutes);
+router.use('/import', verifyIdentity, importRoutes);
+router.use('/stream', verifyIdentity, streamRoutes);
+router.use('/schedules', verifyIdentity, scheduleRoutes);
+router.use('/cross-test', verifyIdentity, crossTestRoutes);
+router.use('/log-sessions', verifyIdentity, logSessionRoutes);
+router.use('/containment', verifyIdentity, containmentRoutes);
+// The control API intentionally checks only for an active session. It is
+// suitable for trusted facility consoles that do not need per-user lookup.
+router.use('/control', requireAuth, controlRoutes);
 
 module.exports = router;

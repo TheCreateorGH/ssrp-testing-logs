@@ -1,8 +1,22 @@
 const { v4: uuidv4 } = require('uuid');
 const { readAllEvents, saveEvent, deleteEventFile } = require('../services/event.service');
-const { canPerform } = require('../config/roles');
+const permissionService = require('../services/permission.service');
 const { getActiveSessionId } = require('../services/logsession.service');
 const hub = require('../realtime/hub');
+
+/** Facility-event type -> the granular action required to log it.
+ *  Event types with no entry here (e.g. plain manual entries, if ever
+ *  posted through this endpoint) are allowed for any authenticated user. */
+const TYPE_TO_ACTION = {
+    BREACH: 'MANAGE:BREACH',
+    BREACH_END: 'MANAGE:BREACH_END',
+    CDC_RIOT: 'MANAGE:CDC_RIOT',
+    ALARM: 'MANAGE:ALARM',
+    THREAT: 'MANAGE:THREAT',
+    CDC: 'MANAGE:CDC',
+    BROADCAST: 'MANAGE:BROADCAST',
+    WARHEAD: 'MANAGE:WARHEADS'
+};
 
 async function listEvents(req, res) {
     res.json(await readAllEvents());
@@ -10,8 +24,14 @@ async function listEvents(req, res) {
 
 async function createEvent(req, res) {
     const type = req.body.type;
-    if (!canPerform(type, req.session.roleCode)) {
-        return res.status(403).json({ error: `${req.session.roleName} (${req.session.roleCode}) is not authorized to log a ${type} event.` });
+    const action = TYPE_TO_ACTION[type];
+    if (action) {
+        console.debug(`[PERM] checking "${action}" for ${req.user.username} (event type ${type})`);
+        const allowed = await permissionService.hasPermission(req.user.id, req.user.roleCode, action);
+        if (!allowed) {
+            console.warn(`[PERM] DENIED "${action}" for ${req.user.username} (${req.user.roleCode})`);
+            return res.status(403).json({ error: `Missing permission: ${action}` });
+        }
     }
     const id = uuidv4();
     const now = new Date().toISOString();

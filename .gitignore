@@ -1,10 +1,7 @@
 node_modules
-facility_logs
 logs
-*lock.json
-
-prompt.xml
-*.mmd
-
-log_sessions.json
-users.json
+facility_logs
+data
+!data/scps.json
+!data/settings.json
+streamdeck-plugin

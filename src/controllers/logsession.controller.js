@@ -15,9 +15,9 @@ async function create(req, res) {
     // client-side reset, so the reset itself is part of the record.
     const now = new Date().toISOString();
     const resets = [
-        { type: 'ALARM', status: "Set Alarm to 'None'"},
-        { type: 'THREAT', status: "Set Threat to 'Low'"},
-        { type: 'CDC', status: "Off"}
+        { type: 'ALARM', status: "Set Alarm to 'None'" },
+        { type: 'THREAT', status: "Set Threat to 'Low'" },
+        { type: 'CDC', status: 'Off' }
     ];
     for (const r of resets) {
         const event = {

@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>☣ SSRP — Site Security Reporting Platform</title>
 <link rel="stylesheet" href="style.css">
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.terminal/js/jquery.terminal.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jquery.terminal/css/jquery.terminal.min.css"/>
 </head>
 <body>
 
@@ -35,6 +38,8 @@
     <symbol id="icon-plug" viewBox="0 0 24 24"><path d="M9 3v6M15 3v6M6 9h12l-1.5 5a4.5 4.5 0 0 1-4.5 3.5A4.5 4.5 0 0 1 7.5 14Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 17.5V21" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="3" y1="3" x2="21" y2="21" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
     <symbol id="icon-filter" viewBox="0 0 24 24"><path d="M4 5h16l-6 8v6l-4 2v-8Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
     <symbol id="icon-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 11V8a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="15.5" r="1.4" fill="currentColor"/></symbol>
+    <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"></circle><polyline points="12 6 12 12 16 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline></symbol>
+    <symbol id="icon-broadcast" viewBox="0 0 24 24"><path d="M4.93 4.93a10 10 0 0 1 14.14 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M7.76 7.76a6 6 0 0 1 8.48 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 14v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8 22h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
   </defs>
 </svg>
 
@@ -94,7 +99,10 @@
       <button class="btn btn--icon" data-action="show-board" aria-label="Containment status board" title="Containment Status Board">
         <svg class="icon"><use href="#icon-shield"/></svg>
       </button>
-      <button class="btn btn--primary" data-action="new-log">
+      <button class="btn btn--icon" data-action="show-broadcast" aria-label="Generate new Broadcast" title="Generate New Broadcast">
+        <svg class="icon"><use href="#icon-broadcast"/></svg>
+      </button>
+      <button class="btn btn--primary" id="newLogBtn" data-action="new-log">
         <svg class="icon"><use href="#icon-plus"/></svg><span>New Log</span>
       </button>
       <button class="btn btn--icon" data-action="toggle-drawer" aria-label="Open ops console" title="Ops Console (o)">
@@ -134,34 +142,34 @@
   <div class="drawer__body">
     <div class="drawer__group">
       <div class="drawer__group-label">Emergency</div>
-      <button class="drawer__item drawer__item--danger" data-action="open-modal" data-modal="breach" data-ops-action="BREACH">
+      <button class="drawer__item drawer__item--danger" data-action="open-modal" data-modal="breach" data-ops-action="MANAGE:BREACH">
         <svg class="icon"><use href="#icon-alert-triangle"/></svg><span>Log Containment Breach</span><svg class="icon icon--sm drawer__lock hidden"><use href="#icon-lock"/></svg>
       </button>
-      <button class="drawer__item drawer__item--warn" data-action="cdc-riot" data-ops-action="CDC_RIOT">
+      <button class="drawer__item drawer__item--warn" data-action="cdc-riot" data-ops-action="MANAGE:CDC_RIOT">
         <svg class="icon"><use href="#icon-activity"/></svg><span>Log Class-D Riot</span><svg class="icon icon--sm drawer__lock hidden"><use href="#icon-lock"/></svg>
       </button>
-      <button class="drawer__item drawer__item--info hidden" id="endBreachItem" data-action="open-modal" data-modal="breach-end" data-ops-action="BREACH_END">
+      <button class="drawer__item drawer__item--info hidden" id="endBreachItem" data-action="open-modal" data-modal="breach-end" data-ops-action="MANAGE:BREACH_END">
         <svg class="icon"><use href="#icon-check-circle"/></svg><span>End Active Breach</span><svg class="icon icon--sm drawer__lock hidden"><use href="#icon-lock"/></svg>
       </button>
     </div>
     <div class="drawer__group">
       <div class="drawer__group-label">Site Levels</div>
-      <button class="drawer__item" data-action="open-modal" data-modal="alarm" data-ops-action="ALARM">
+      <button class="drawer__item" data-action="open-modal" data-modal="alarm" data-ops-action="MANAGE:ALARM">
         <svg class="icon"><use href="#icon-bell"/></svg><span>Set Alarm State</span><svg class="icon icon--sm drawer__lock hidden"><use href="#icon-lock"/></svg>
       </button>
-      <button class="drawer__item" data-action="open-modal" data-modal="threat" data-ops-action="THREAT">
+      <button class="drawer__item" data-action="open-modal" data-modal="threat" data-ops-action="MANAGE:THREAT">
         <svg class="icon"><use href="#icon-activity"/></svg><span>Set Threat Level</span><svg class="icon icon--sm drawer__lock hidden"><use href="#icon-lock"/></svg>
       </button>
-      <button class="drawer__item" data-action="open-modal" data-modal="cdc" data-ops-action="CDC">
+      <button class="drawer__item" data-action="open-modal" data-modal="cdc" data-ops-action="MANAGE:CDC">
         <svg class="icon"><use href="#icon-shield"/></svg><span>Set CDC Status</span><svg class="icon icon--sm drawer__lock hidden"><use href="#icon-lock"/></svg>
       </button>
     </div>
     <div class="drawer__group">
       <div class="drawer__group-label">Broadcast &amp; Ordnance</div>
-      <button class="drawer__item drawer__item--info" data-action="open-modal" data-modal="broadcast" data-ops-action="BROADCAST">
+      <button class="drawer__item drawer__item--info" data-action="open-modal" data-modal="broadcast" data-ops-action="MANAGE:BROADCAST">
         <svg class="icon"><use href="#icon-radio"/></svg><span>Site-Wide Broadcast</span><svg class="icon icon--sm drawer__lock hidden"><use href="#icon-lock"/></svg>
       </button>
-      <button class="drawer__item drawer__item--warn" data-action="open-modal" data-modal="nuke" data-ops-action="WARHEAD">
+      <button class="drawer__item drawer__item--warn" data-action="open-modal" data-modal="nuke" data-ops-action="MANAGE:WARHEADS">
         <svg class="icon"><use href="#icon-warhead"/></svg><span>Warhead Control</span><svg class="icon icon--sm drawer__lock hidden"><use href="#icon-lock"/></svg>
       </button>
     </div>
@@ -182,9 +190,13 @@
     </div>
     <div class="drawer__group">
       <div class="drawer__group-label">Data</div>
-      <button class="drawer__item" data-action="open-modal" data-modal="import">
-        <svg class="icon"><use href="#icon-upload"/></svg><span>Import Markdown Log</span>
+      <button class="drawer__item" data-action="open-modal" data-modal="import" data-ops-action="IMPORT:TEST">
+        <svg class="icon"><use href="#icon-upload"/></svg><span>Import Markdown Log</span><svg class="icon icon--sm drawer__lock hidden"><use href="#icon-lock"/></svg>
       </button>
+    </div>
+    <div class="drawer__group hidden" id="terminal-div">
+      <div class="drawer__group-label">Shell</div>
+      <div id="terminal" style="height: 20vh;"></div>
     </div>
   </div>
 </aside>
@@ -716,10 +728,10 @@
       <button class="btn btn--ghost btn--sm" data-action="go-dashboard"><svg class="icon icon--sm"><use href="#icon-chevron-left"/></svg>Back</button>
       <div class="report-toolbar__actions">
         <button class="btn btn--sm" data-action="copy-current"><svg class="icon icon--sm"><use href="#icon-copy"/></svg>Copy ID</button>
-        <button class="btn btn--sm" data-action="pdf-current"><svg class="icon icon--sm"><use href="#icon-download"/></svg>PDF Report</button>
-        <button class="btn btn--sm" data-action="export-current"><svg class="icon icon--sm"><use href="#icon-download"/></svg>Export</button>
-        <button class="btn btn--sm" data-action="edit-current"><svg class="icon icon--sm"><use href="#icon-edit"/></svg>Edit</button>
-        <button class="btn btn--danger btn--sm" data-action="delete-current"><svg class="icon icon--sm"><use href="#icon-trash"/></svg>Delete</button>
+        <button class="btn btn--sm" id="detailPdfBtn" data-action="pdf-current"><svg class="icon icon--sm"><use href="#icon-download"/></svg>PDF Report</button>
+        <button class="btn btn--sm" id="detailExportBtn" data-action="export-current"><svg class="icon icon--sm"><use href="#icon-download"/></svg>Export</button>
+        <button class="btn btn--sm" id="detailEditBtn" data-action="edit-current"><svg class="icon icon--sm"><use href="#icon-edit"/></svg>Edit</button>
+        <button class="btn btn--danger btn--sm" id="detailDeleteBtn" data-action="delete-current"><svg class="icon icon--sm"><use href="#icon-trash"/></svg>Delete</button>
       </div>
     </div>
     <div id="detailContent"></div>
@@ -751,10 +763,38 @@
   <section class="view" id="view-admin">
     <div class="form-header">
       <button class="btn btn--ghost btn--sm" data-action="go-dashboard"><svg class="icon icon--sm"><use href="#icon-chevron-left"/></svg>Back</button>
-      <span class="form-header__title">Admin User Dashboard</span>
+      <span class="form-header__title">Admin Dashboard</span>
       <span class="result-count" id="adminResultCount">0 users</span>
     </div>
-    <div class="admin-table" id="adminUserTable"></div>
+
+    <div class="admin-tabs">
+      <button class="admin-tab is-active" data-action="admin-switch-tab" data-tab="users" data-tab-name="users">Users</button>
+      <button class="admin-tab" data-action="admin-switch-tab" data-tab="permissions" data-tab-name="permissions">Permissions</button>
+    </div>
+
+    <div id="adminUsersPane">
+      <div class="admin-table" id="adminUserTable"></div>
+    </div>
+
+    <div id="adminPermissionsPane" class="hidden">
+      <div class="panel">
+        <div class="panel__head">
+          <span class="panel__title">Role Permission Matrix</span>
+          <span class="panel__aside">
+            <select id="permRoleSelect" style="height:32px;font-size:12px"></select>
+          </span>
+        </div>
+        <div class="panel__body">
+          <p class="modal__desc">Check the granular actions this role is permitted to perform. Changes apply immediately to every user with this role who doesn't have their own override.</p>
+          <span class="elevated-badge hidden" id="permRoleCustomizedTag" style="margin-bottom:var(--sp-3);display:inline-flex">CUSTOMIZED (not default)</span>
+          <div class="perm-grid" id="permRoleGrid"></div>
+          <div style="display:flex;gap:var(--sp-2);margin-top:var(--sp-4)">
+            <button class="btn btn--primary" data-action="admin-save-role-permissions"><svg class="icon icon--sm"><use href="#icon-save"/></svg>Save Role Permissions</button>
+            <button class="btn btn--ghost" data-action="admin-reset-role-permissions">Reset to JSON Defaults</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </section>
 
 </main>
@@ -772,7 +812,56 @@
   </div>
 </div>
 
+<div class="modal-layer" id="modal-user-permissions">
+  <div class="modal modal--wide">
+    <div class="modal__head" style="--tone:var(--access)"><span class="modal__title" id="userPermTitle"><svg class="icon"><use href="#icon-lock"/></svg>User Permissions</span><button class="btn btn--icon btn--ghost" data-action="close-modal"><svg class="icon"><use href="#icon-x"/></svg></button></div>
+    <div class="modal__body">
+      <p class="modal__desc">An override here replaces this user's role-derived permissions entirely. Reset removes the override so they strictly inherit their role's permissions again.</p>
+      <span class="elevated-badge hidden" id="userPermCustomizedTag" style="margin-bottom:var(--sp-3);display:inline-flex">CUSTOM OVERRIDE ACTIVE</span>
+      <div class="perm-grid" id="userPermGrid"></div>
+    </div>
+    <div class="modal__foot">
+      <button class="btn btn--primary" data-action="admin-save-user-permissions"><svg class="icon icon--sm"><use href="#icon-save"/></svg>Save Override</button>
+      <button class="btn btn--ghost" data-action="admin-reset-user-permissions">Reset to Role Default</button>
+      <button class="btn btn--ghost" data-action="close-modal">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="app.js"></script>
+<script>
+$('#terminal').terminal({
+    help: function() {
+        this.echo('Verfügbare Befehle: help, clear, stats, say <text>, dellogs, reload');
+    },
+
+    reload: function() {
+        window.location.reload();
+    },
+
+    dellogs: async function() {
+        try {
+            const response = await fetch("/api/execute", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command: 'dellogs', args: [] })
+            });
+
+            if (response.ok) {
+                return "Deleted all Logs. Run 'reload' to see changes.";
+            } else {
+                return "An Error occurred on the server.";
+            }
+        } catch (error) {
+            return "Network Error: Could not connect to server.";
+        }
+    }
+}, {
+    greetings: 'SCP Foundation Terminal. CLASSIFIED',
+    prompt: 'user@scpf:~$ ',
+    checkArity: false
+});
+</script>
 </body>
 </html>

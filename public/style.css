@@ -23,8 +23,6 @@
     --clear-glow: rgba(46, 230, 166, .22);
     --access: #4d8dff;
     --access-glow: rgba(77, 141, 255, .22);
-    --purple: #b352ff;
-    --purple-glow: rgba(179, 82, 255, .25);
     --muted-tone: #7a7d87;
 
     --text: #c7c9d1;
@@ -122,12 +120,12 @@ svg { display: block; }
     }
 }
 
-a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible,
+/* a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible,
 textarea:focus-visible, [tabindex]:focus-visible {
     outline: 2px solid var(--signal);
     outline-offset: 2px;
     border-radius: var(--r-sm);
-}
+} */
 
 .sr-only {
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
@@ -419,8 +417,8 @@ input[type="text"], input[type="number"], input[type="search"], select, textarea
     width: 100%;
 }
 textarea { padding: var(--sp-3) var(--sp-4); height: auto; min-height: 90px; resize: vertical; line-height: 1.5; }
-input:hover, select:hover, textarea:hover { border-color: var(--line-3); }
-input:focus, select:focus, textarea:focus { border-color: var(--signal); box-shadow: 0 0 0 3px var(--signal-glow); }
+/* input:hover, select:hover, textarea:hover { border-color: var(--line-3); } */
+/* input:focus, select:focus, textarea:focus { border-color: var(--signal); box-shadow: 0 0 0 3px var(--signal-glow); } */
 select { cursor: pointer; }
 select option { background: var(--panel-2); }
 input::placeholder, textarea::placeholder { color: var(--text-dim); }
@@ -479,6 +477,16 @@ input[type="number"]::-webkit-outer-spin-button {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: var(--sp-3);
+}
+
+/* #logGrid holds .session-group sections, not cards directly — it
+   shares the .grid class (for the empty-state styling) but must not
+   share its grid-layout behavior, or each session gets squeezed into
+   a single narrow auto-fill column (bug: sessions rendered as a
+   vertical single-column "tower" instead of each one's cards flowing
+   into responsive rows). */
+#logGrid {
+    display: block;
 }
 
 .record-card {
@@ -808,7 +816,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .live-dot.is-idle { background: var(--line-3); animation: none; }
 
 /* Timeline */
-.tl-group + .tl-group { margin-top: var(--sp-3); }
+.tl-group + .tl-group { margin: var(--sp-3); }
 .tl-group__label {
     font-family: var(--f-mono); font-size: 10px; color: var(--text-dim); letter-spacing: 1.5px;
     text-transform: uppercase; margin-bottom: var(--sp-2); display: flex; align-items: center; gap: 6px;
@@ -1045,6 +1053,13 @@ input[type="number"]::-webkit-outer-spin-button {
 .admin-row__actions { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
 .admin-table-head { display: grid; grid-template-columns: 1.2fr 1fr .8fr .6fr auto; gap: var(--sp-3); padding: 0 var(--sp-4) var(--sp-2); font-family: var(--f-mono); font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
 
+.admin-tabs { display: flex; gap: 4px; margin-bottom: var(--sp-4); border-bottom: 1px solid var(--line); }
+.admin-tab { padding: var(--sp-3) var(--sp-4); background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-dim); font-family: var(--f-body); font-size: 12.5px; font-weight: 700; letter-spacing: .5px; cursor: pointer; transition: all var(--t-fast); }
+.admin-tab:hover { color: var(--text); }
+.admin-tab.is-active { color: var(--signal); border-bottom-color: var(--signal); }
+
+.perm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; max-height: 420px; overflow-y: auto; padding-right: 4px; }
+
 .temp-password-display { font-family: var(--f-mono); font-size: 22px; letter-spacing: 2px; text-align: center; padding: var(--sp-4); background: var(--panel-2); border: 1px dashed var(--clear); border-radius: var(--r-md); color: var(--clear); }
 
 /* Containment board quick-resolve actions */
@@ -1053,14 +1068,20 @@ input[type="number"]::-webkit-outer-spin-button {
 
 /* Facility session grouping on the dashboard */
 .session-group + .session-group { margin-top: var(--sp-5); }
-.session-group__head { display: flex; align-items: center; gap: var(--sp-3); cursor: pointer; padding: var(--sp-2) 0; margin-bottom: var(--sp-3); user-select: none; }
-.session-group__chevron { transition: transform var(--t-fast); color: var(--text-dim); }
+.session-group__head {
+    display: flex; align-items: center; gap: var(--sp-2); cursor: pointer;
+    padding: var(--sp-2) 0; margin-bottom: var(--sp-3); user-select: none;
+}
+.session-group__head::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.session-group__chevron { transition: transform var(--t-fast); color: var(--text-dim); flex-shrink: 0; }
 .session-group.is-collapsed .session-group__chevron { transform: rotate(-90deg); }
 .session-group.is-collapsed .grid { display: none; }
-.session-group__title { font-family: var(--f-display); font-size: 13px; color: var(--text-bright); letter-spacing: 1px; }
-.session-group__meta { font-family: var(--f-mono); font-size: 10.5px; color: var(--text-dim); }
-.session-group__active-tag { font-family: var(--f-mono); font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: var(--r-full); background: var(--clear-glow); color: var(--clear); text-transform: uppercase; letter-spacing: .5px; }
-
+.session-group__title {
+    font-family: var(--f-mono); font-size: 10px; color: var(--text-dim); letter-spacing: 1.5px;
+    text-transform: uppercase; font-weight: 700;
+}
+.session-group__meta { font-family: var(--f-mono); font-size: 10px; color: var(--text-dim); letter-spacing: .5px; flex-shrink: 0; }
+.session-group__active-tag { font-family: var(--f-mono); font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: var(--r-full); background: var(--clear-glow); color: var(--clear); text-transform: uppercase; letter-spacing: .5px; flex-shrink: 0; }
 
 .role-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; max-height: 260px; overflow-y: auto; padding-right: 2px; }
 .role-option { display: flex; flex-direction: column; gap: 2px; padding: var(--sp-2) var(--sp-3); background: var(--panel-2); border: 1px solid var(--line-2); border-radius: var(--r-md); cursor: pointer; transition: all var(--t-fast); }
@@ -1100,7 +1121,6 @@ input[type="number"]::-webkit-outer-spin-button {
 .cross-warning-list { display: flex; flex-direction: column; gap: 6px; margin-top: var(--sp-2); }
 .cross-warning-list:empty { display: none; }
 .cross-warning { display: flex; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); border-left: 3px solid; font-size: 11.5px; background: var(--panel-2); }
-.cross-warning--forbidden { border-color: var(--purple)}
 .cross-warning--critical { border-color: var(--signal); }
 .cross-warning--high { border-color: var(--signal); }
 .cross-warning--moderate { border-color: var(--caution); }
@@ -1108,7 +1128,6 @@ input[type="number"]::-webkit-outer-spin-button {
 .cross-warning--unassessed { border-color: var(--line-3); }
 .cross-warning__tag { font-family: var(--f-mono); font-size: 9.5px; font-weight: 700; text-transform: uppercase; flex-shrink: 0; padding: 2px 6px; border-radius: 4px; height: fit-content; }
 .cross-warning--critical .cross-warning__tag, .cross-warning--high .cross-warning__tag { background: var(--signal-glow); color: var(--signal); }
-.cross-warning__tag, .cross-warning--forbidden .cross-warning__tag { background: var(--purple-glow); color: var(--purple); }
 .cross-warning--moderate .cross-warning__tag { background: var(--caution-glow); color: var(--caution); }
 .cross-warning--low .cross-warning__tag { background: var(--clear-glow); color: var(--clear); }
 .cross-warning--unassessed .cross-warning__tag { background: var(--panel-3); color: var(--text-dim); }

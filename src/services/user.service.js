@@ -6,6 +6,7 @@ const { hashPassword, verifyPassword, generateTempPassword } = require('../utils
 const { getRole } = require('../config/roles');
 
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const VALID_STATUSES = ['PENDING', 'ACTIVE', 'SUSPENDED', 'LOCKED'];
 
 async function readAll() {
     try {
@@ -39,12 +40,12 @@ async function ensureBootstrapAdmin() {
         displayName: 'System Administrator',
         roleCode: 'ADMIN',
         clearance: 6,
-        approved: true,
+        status: 'ACTIVE',
         mustChangePassword: true,
         createdAt: new Date().toISOString()
     });
     await writeAll(users);
-    console.log(`
+    console.silent(`
 ╔════════════════════════════════════════════════════╗
 ║  ☣  BOOTSTRAP ADMIN ACCOUNT CREATED                 ║
 ║  username: admin                                     ║
@@ -81,7 +82,7 @@ async function register({ username, password, displayName }) {
         displayName: (displayName || username).trim(),
         roleCode: null,
         clearance: 0,
-        approved: false,
+        status: 'PENDING',
         mustChangePassword: false,
         createdAt: new Date().toISOString()
     };
@@ -90,15 +91,21 @@ async function register({ username, password, displayName }) {
     return toPublic(user);
 }
 
-/** Full account gate: exists, password matches, admin-approved, and has
- *  a role assigned. Any failure returns a specific reason for the UI. */
+/** Full account gate: exists, password matches, status is ACTIVE, and
+ *  has a role assigned. Any failure returns a specific reason for the UI. */
 async function authenticate(username, password) {
     const user = await findByUsername(username);
     if (!user || !verifyPassword(password, user.passwordHash)) {
         throw Object.assign(new Error('Invalid username or password.'), { status: 401 });
     }
-    if (!user.approved) {
+    if (user.status === 'PENDING') {
         throw Object.assign(new Error('Your account is awaiting administrator approval.'), { status: 403, reason: 'PENDING_APPROVAL' });
+    }
+    if (user.status === 'SUSPENDED') {
+        throw Object.assign(new Error('Your account has been suspended. Contact an administrator.'), { status: 403, reason: 'SUSPENDED' });
+    }
+    if (user.status === 'LOCKED') {
+        throw Object.assign(new Error('Your account has been locked. Contact an administrator.'), { status: 403, reason: 'LOCKED' });
     }
     if (!user.roleCode) {
         throw Object.assign(new Error('Your account has not been assigned a Foundation role yet.'), { status: 403, reason: 'PENDING_ROLE' });
@@ -119,11 +126,14 @@ async function changePassword(id, oldPassword, newPassword) {
     return toPublic(user);
 }
 
-async function adminUpdate(id, { approved, roleCode, clearance }) {
+async function adminUpdate(id, { status, roleCode, clearance }) {
     const users = await readAll();
     const user = users.find(u => u.id === id);
     if (!user) return null;
-    if (typeof approved === 'boolean') user.approved = approved;
+    if (status !== undefined) {
+        if (!VALID_STATUSES.includes(status)) throw Object.assign(new Error('Invalid status.'), { status: 400 });
+        user.status = status;
+    }
     if (roleCode !== undefined) {
         if (roleCode !== null && !getRole(roleCode)) throw Object.assign(new Error('Unknown role.'), { status: 400 });
         user.roleCode = roleCode;
@@ -155,6 +165,7 @@ async function deleteUser(id) {
 }
 
 module.exports = {
+    VALID_STATUSES,
     ensureBootstrapAdmin, listUsers, findByUsername, findById,
     register, authenticate, changePassword,
     adminUpdate, adminResetPassword, deleteUser, toPublic

@@ -1,0 +1,15 @@
+[
+  {
+    "id": "3cf85aae-ab39-40d9-b8c5-0dd6f86ab9aa",
+    "username": "alex",
+    "passwordHash": "6dd8a46cf8ae3621e4b950ae31bf7c0e:9c3496d3dc7d3e914aa0588a540423554f2d54ee50b8c3e8bd4ba8e31ca36eb5a49f0ce694bee80c05c3ee8a13c2e13ebcaebff9a651d01e9c769db2ee84f4af",
+    "displayName": "O5-4",
+    "roleCode": "ADMIN",
+    "clearance": 6,
+    "status": "ACTIVE",
+    "mustChangePassword": false,
+    "createdAt": "2026-09-07T18:09:13.696Z",
+    "streamDeckTokenHash": "0d2ecb66f275ebecf2d7b0d80a23dad4:c00170b3fc2d1c3affa87740496fe646546022392e714aadce7a7ca93ee7e004980f6d5263ced6a767d3ae7117427fd6ae192d70db871fb357ca735d667ff156",
+    "streamDeckTokenIssuedAt": "2026-11-12T20:12:38.294Z"
+  }
+]

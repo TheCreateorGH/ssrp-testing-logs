@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>☣ SSRP — 404 Containment Breach (Page Not Found)</title>
 <link rel="stylesheet" href="style.css">
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jquery.terminal/js/jquery.terminal.min.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jquery.terminal/css/jquery.terminal.min.css"/>
+<script src="vendor/jquery/jquery.min.js"></script>
+<script src="vendor/jquery-terminal/js/jquery.terminal.min.js"></script>
+<link rel="stylesheet" href="vendor/jquery-terminal/css/jquery.terminal.min.css"/>
 <style>
   /* Page-specific layout helpers using existing CSS tokens without touching style.css */
   .error-container {
@@ -30,6 +30,50 @@
     box-shadow: var(--shadow-2);
     position: relative;
     overflow: hidden;
+    animation: errorCardIn 420ms var(--ease-out) both;
+  }
+
+  .error-card__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-5);
+  }
+
+  .error-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    color: var(--signal);
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+  }
+
+  .error-eyebrow::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 10px currentColor;
+    animation: breathe 2s ease-in-out infinite;
+  }
+
+  .error-sector {
+    color: var(--text-dim);
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-align: right;
+    text-transform: uppercase;
+  }
+
+  @keyframes errorCardIn {
+    from { opacity: 0; transform: translateY(10px) scale(.98); }
+    to { opacity: 1; transform: none; }
   }
 
   .error-card::before {
@@ -51,6 +95,12 @@
     text-shadow: var(--shadow-glow);
     letter-spacing: 4px;
     margin-bottom: var(--sp-2);
+    animation: errorCodePulse 2.8s ease-in-out 500ms infinite;
+  }
+
+  @keyframes errorCodePulse {
+    0%, 100% { text-shadow: var(--shadow-glow); transform: translateY(0); }
+    50% { text-shadow: 0 0 34px var(--signal-glow); transform: translateY(-2px); }
   }
 
   .error-title {
@@ -71,17 +121,75 @@
     line-height: 1.6;
   }
 
+  .error-meta {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--sp-2);
+    margin: var(--sp-5) 0;
+  }
+
+  .error-meta__item {
+    padding: var(--sp-3);
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    text-align: left;
+  }
+
+  .error-meta__label {
+    display: block;
+    color: var(--text-dim);
+    font-family: var(--f-mono);
+    font-size: 9px;
+    letter-spacing: 1px;
+    margin-bottom: 3px;
+    text-transform: uppercase;
+  }
+
+  .error-meta__value {
+    color: var(--text-bright);
+    font-family: var(--f-mono);
+    font-size: 11px;
+  }
+
+  .error-meta__value--alert { color: var(--signal); }
+  .error-meta__value--warn { color: var(--caution); }
+
+  .error-actions {
+    display: flex;
+    justify-content: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+  }
+
+  .error-hint {
+    margin-top: var(--sp-4);
+    color: var(--text-dim);
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: .4px;
+  }
+
   .terminal-box {
     text-align: left;
     margin-top: var(--sp-5);
     border-radius: var(--r-md);
     overflow: hidden;
     border: 1px solid var(--line-2);
+    animation: viewIn 220ms var(--ease-out);
   }
 
   .glitch-text {
     cursor: pointer;
     user-select: none;
+  }
+
+  @media (max-width: 520px) {
+    .error-card { padding: var(--sp-6) var(--sp-4); }
+    .error-card__header { flex-direction: column; }
+    .error-sector { text-align: left; }
+    .error-meta { grid-template-columns: 1fr; }
+    .error-code { font-size: 64px; }
   }
 </style>
 </head>
@@ -140,6 +248,10 @@
 <main id="shell">
   <div class="error-container">
     <div class="error-card">
+      <div class="error-card__header">
+        <div class="error-eyebrow">Containment routing alert</div>
+        <div class="error-sector">Sector: 404 / Unmapped</div>
+      </div>
       <div class="error-code glitch-text" id="easterEggTrigger" title="Click 5 times for classified access">404</div>
       <div class="error-title">RESOURCE EXPUNGED / NON-EXISTENT</div>
       <p class="error-desc">
@@ -147,14 +259,30 @@
         It may have been expunged by Order of O5-Command, redacted, or relocated during containment protocols.
       </p>
 
-      <div style="display:flex; gap:var(--sp-3); justify-content:center; flex-wrap:wrap;">
+      <div class="error-meta" aria-label="Incident details">
+        <div class="error-meta__item">
+          <span class="error-meta__label">Trace status</span>
+          <span class="error-meta__value error-meta__value--alert">No route found</span>
+        </div>
+        <div class="error-meta__item">
+          <span class="error-meta__label">Containment</span>
+          <span class="error-meta__value error-meta__value--warn">Review required</span>
+        </div>
+        <div class="error-meta__item">
+          <span class="error-meta__label">Incident code</span>
+          <span class="error-meta__value">SCP-404-NF</span>
+        </div>
+      </div>
+
+      <div class="error-actions">
         <a href="/" class="btn btn--primary">
           <svg class="icon"><use href="#icon-shield"/></svg><span>Return to Dashboard</span>
         </a>
-        <!-- <button class="btn btn--ghost" id="toggleConsoleBtn">
-          <span>Open Emergency Console</span>
-        </button> -->
+        <button class="btn btn--ghost" type="button" onclick="window.location.reload()">
+          <svg class="icon"><use href="#icon-activity"/></svg><span>Retry Request</span>
+        </button>
       </div>
+      <p class="error-hint">Tip: click the incident code five times to request O5 emergency access.</p>
 
       <!-- Emergency Terminal / Easter Egg Console -->
       <div class="terminal-box hidden" id="terminalContainer">

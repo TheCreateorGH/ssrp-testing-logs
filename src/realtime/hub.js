@@ -7,23 +7,65 @@
  */
 const sseClients = new Set();
 const wsClients = new Set();
+const { audienceFor } = require('./visibility');
+const { getSession } = require('../services/session.service');
+const userService = require('../services/user.service');
+const permissionService = require('../services/permission.service');
 
 /** Register a new SSE response stream. */
-function addClient(res) {
-    sseClients.add(res);
+function addClient(res, context = {}) {
+    sseClients.add({ res, context });
 }
 
 /** Remove a disconnected SSE response stream. */
 function removeClient(res) {
-    sseClients.delete(res);
+    for (const client of sseClients) {
+        if (client.res === res) sseClients.delete(client);
+    }
 }
 
-function addWsClient(ws) {
-    wsClients.add(ws);
+function addWsClient(ws, context = {}) {
+    wsClients.add({ ws, context });
 }
 
 function removeWsClient(ws) {
-    wsClients.delete(ws);
+    for (const client of wsClients) {
+        if (client.ws === ws) wsClients.delete(client);
+    }
+}
+
+/**
+ * Refreshes the authorization context for a connected client. Realtime
+ * connections outlive normal HTTP requests, so their session and permissions
+ * must not be trusted after the initial handshake.
+ */
+async function getCurrentContext(client) {
+    const token = client.context.sessionToken || client.context.session?.token;
+    const storedSession = getSession(token);
+    if (!storedSession) return null;
+
+    const user = await userService.findById(storedSession.userId);
+    if (!user || user.status !== 'ACTIVE') return null;
+
+    const session = {
+        ...storedSession,
+        username: user.username,
+        name: user.displayName || user.username,
+        roleCode: user.roleCode,
+        clearance: user.clearance
+    };
+    const permissions = await permissionService.getUserPermissions(user.id, user.roleCode);
+    return { session, permissions };
+}
+
+function disconnect(client, channel) {
+    if (channel === 'sse') {
+        try { client.res.end(); } catch { /* already closed */ }
+        sseClients.delete(client);
+        return;
+    }
+    try { client.ws.close(4001, 'Unauthorized'); } catch { /* already closed */ }
+    wsClients.delete(client);
 }
 
 /**
@@ -34,20 +76,50 @@ function removeWsClient(ws) {
  *   request that caused this broadcast, so the originating tab can
  *   skip showing itself a "new entry" toast while still applying the
  *   (idempotent) update.
+ * @param {(context: object) => boolean} [audience] - optional per-client
+ *   authorization predicate.
  */
-function broadcast(event, payload, originClientId) {
-    const body = JSON.stringify({ ...payload, _origin: originClientId || null });
+async function broadcast(event, payload, originClientId, audience) {
+    const recipientFilter = audience || audienceFor(event, payload);
+    const { _visibility, ...publicPayload } = payload;
+    const body = JSON.stringify({ ...publicPayload, _origin: originClientId || null });
 
     const sseFrame = `event: ${event}\ndata: ${body}\n\n`;
-    for (const res of sseClients) {
-        try { res.write(sseFrame); }
-        catch { sseClients.delete(res); }
+    for (const client of sseClients) {
+        let context;
+        try {
+            context = await getCurrentContext(client);
+        } catch (err) {
+            console.error('Realtime SSE authorization refresh failed', err);
+            disconnect(client, 'sse');
+            continue;
+        }
+        if (!context) {
+            disconnect(client, 'sse');
+            continue;
+        }
+        if (!recipientFilter(context)) continue;
+        try { client.res.write(sseFrame); }
+        catch { sseClients.delete(client); }
     }
 
     const wsFrame = JSON.stringify({ type: event, ...JSON.parse(body) });
-    for (const ws of wsClients) {
-        try { if (ws.readyState === 1) ws.send(wsFrame); }
-        catch { wsClients.delete(ws); }
+    for (const client of wsClients) {
+        let context;
+        try {
+            context = await getCurrentContext(client);
+        } catch (err) {
+            console.error('Realtime WebSocket authorization refresh failed', err);
+            disconnect(client, 'ws');
+            continue;
+        }
+        if (!context) {
+            disconnect(client, 'ws');
+            continue;
+        }
+        if (!recipientFilter(context)) continue;
+        try { if (client.ws.readyState === 1) client.ws.send(wsFrame); }
+        catch { wsClients.delete(client); }
     }
 }
 

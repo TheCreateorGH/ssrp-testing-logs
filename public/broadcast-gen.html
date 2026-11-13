@@ -6,14 +6,14 @@
 <title>☣ SSRP — Site Security Reporting Platform</title>
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="broadcastPage.css">
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jquery.terminal/js/jquery.terminal.min.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jquery.terminal/css/jquery.terminal.min.css"/>
+<script src="vendor/jquery/jquery.min.js"></script>
+<script src="vendor/jquery-terminal/js/jquery.terminal.min.js"></script>
+<link rel="stylesheet" href="vendor/jquery-terminal/css/jquery.terminal.min.css"/>
 </head>
 <body>
 
 <main>
-    <div class="container">
+    <div class="container broadcast-config">
         <h1>Broadcast Generator</h1>
 
         <div id="alarmGroup">
@@ -46,14 +46,7 @@
             </div>
         </div>
 
-
-        <label class="field__label">Breach Count</label>
-        <div class="num-field field">
-            <input type="number" id="breachCount" value="0" min="0" max="20" style="width: 250px;">
-            <div class="num-stepper"><button type="button" class="num-stepper__btn" data-action="num-step" data-target="breachCount" data-dir="1" aria-label="Increase"><svg class="icon icon--flip"><use href="#icon-chevron-down"/></svg></button><button type="button" class="num-stepper__btn" data-action="num-step" data-target="breachCount" data-dir="-1" aria-label="Decrease"><svg class="icon"><use href="#icon-chevron-down"/></svg></button></div>
-        </div>
-
-        <div id="testingStatus">
+        <div id="testingStatusGroup">
             <div class="field">
                 <label class="field__label" for="testingStatus">Testing</label>
                 <select id="testingStatus">
@@ -97,6 +90,19 @@
         </div>
     </div>
 
+    <aside class="scp-rail" id="rightSideScpBreachSelector" aria-labelledby="scpRailTitle">
+        <div class="scp-rail__header">
+            <div>
+                <h1>Available SCPs</h1>
+            </div>
+            <span class="scp-rail__count" id="scpCount">—</span>
+        </div>
+        <p class="scp-rail__intro">Live catalog data for this facility. Every entry is transmission-ready.</p>
+        <div id="scpList" class="scp-list" aria-live="polite">
+            <div class="scp-state">Loading catalog<span class="scp-state__pulse" aria-hidden="true"></span></div>
+        </div>
+    </aside>
+
     <div class="container" id="broadcastContainer">
         <h1>Broadcast</h1>
         <div class="output-box" style="opacity: .5;">
@@ -119,8 +125,7 @@
     </defs>
 </svg>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="app.js"></script>
+<script src="vendor/jspdf/jspdf.umd.min.js"></script>
 <script src="broadcastPage.js"></script>
 </body>
 </html>

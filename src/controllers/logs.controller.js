@@ -65,7 +65,7 @@ async function createLog(req, res) {
     if (!log) return res.status(400).json({ error: 'Invalid payload' });
 
     await saveLog(log, scps);
-    hub.broadcast('log:upsert', log, req.headers['x-client-id']);
+    await hub.broadcast('log:upsert', log, req.headers['x-client-id']);
     res.status(201).json(log);
 }
 
@@ -92,15 +92,22 @@ async function updateLog(req, res) {
     });
 
     await saveLog(updated, scps);
-    hub.broadcast('log:upsert', updated, req.headers['x-client-id']);
+    await hub.broadcast('log:upsert', updated, req.headers['x-client-id']);
     res.json(updated);
 }
 
 async function removeLog(req, res) {
-    if (!await deleteLogFile(req.params.id)) {
+    const existing = await readLog(req.params.id);
+    if (!existing || !await deleteLogFile(req.params.id)) {
         return res.status(404).json({ error: 'Not found' });
     }
-    hub.broadcast('log:deleted', { id: req.params.id }, req.headers['x-client-id']);
+    await hub.broadcast('log:deleted', {
+        id: req.params.id,
+        _visibility: {
+            viewClearance: existing.viewClearance,
+            roleOverrides: existing.roleOverrides
+        }
+    }, req.headers['x-client-id']);
     res.json({ deleted: true });
 }
 

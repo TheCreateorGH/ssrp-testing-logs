@@ -27,10 +27,10 @@ async function create(req, res) {
             createdAt: now, updatedAt: now
         };
         await saveEvent(event);
-        hub.broadcast('event:created', event, req.headers['x-client-id']);
+        await hub.broadcast('event:created', event, req.headers['x-client-id']);
     }
 
-    hub.broadcast('logsession:created', session, req.headers['x-client-id']);
+    await hub.broadcast('logsession:created', session, req.headers['x-client-id']);
     res.status(201).json(session);
 }
 

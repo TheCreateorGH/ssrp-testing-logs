@@ -1,4 +1,5 @@
 const hub = require('../realtime/hub');
+const permissionService = require('../services/permission.service');
 
 /**
  * GET /api/stream — Server-Sent-Events endpoint. Keeps the HTTP
@@ -6,7 +7,8 @@ const hub = require('../realtime/hub');
  * hub.broadcast(). A comment-only ping is sent periodically to keep
  * intermediary proxies/load balancers from closing the idle connection.
  */
-function stream(req, res) {
+async function stream(req, res) {
+    await permissionService.getUserPermissions(req.session.userId, req.session.roleCode);
     res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache, no-transform',
@@ -16,7 +18,7 @@ function stream(req, res) {
     res.write('retry: 3000\n\n');
     res.write(`event: hello\ndata: ${JSON.stringify({ ok: true, time: new Date().toISOString() })}\n\n`);
 
-    hub.addClient(res);
+    hub.addClient(res, { sessionToken: req.session.token });
 
     const pingInterval = setInterval(() => {
         try {

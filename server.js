@@ -9,6 +9,7 @@ const scheduler = require('./src/realtime/scheduler');
 const userService = require('./src/services/user.service');
 const logSessionService = require('./src/services/logsession.service');
 const { IP, PORT } = require('./src/config/network');
+const websocket = require('./src/realtime/websocket');
 
 app.post('/api/execute', async (req, res) => {
     const { command, args } = req.body;

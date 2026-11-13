@@ -1,23 +1,9 @@
 [
   {
-    "id": "aed3d5c9-5c47-458b-8d21-f599bc18b7d2",
+    "id": "e4a2fde8-2cde-4754-b426-da98eadc4e87",
     "label": "Session 1",
-    "createdAt": "2026-09-12T17:14:04.311Z",
+    "createdAt": "2026-11-13T07:08:23.128Z",
     "createdBy": "System",
-    "active": false
-  },
-  {
-    "id": "df00b5f4-dd28-41d4-a869-ffcabc362ac7",
-    "label": "Session 2",
-    "createdAt": "2026-09-12T17:14:16.472Z",
-    "createdBy": "O5-4",
-    "active": false
-  },
-  {
-    "id": "53c6045b-9db4-422e-80cd-6d1315dfe1c9",
-    "label": "Session 3",
-    "createdAt": "2026-11-12T18:40:43.707Z",
-    "createdBy": "O5-4",
     "active": true
   }
 ]

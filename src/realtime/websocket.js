@@ -2,6 +2,7 @@ const { WebSocketServer } = require('ws');
 const { getSession } = require('../services/session.service');
 const { isDebug } = require('../debug/logger');
 const hub = require('./hub');
+const permissionService = require('../services/permission.service');
 
 let wss = null;
 
@@ -18,7 +19,7 @@ function proxySend(ws, label) {
 function attach(server) {
     wss = new WebSocketServer({ server, path: '/ws' });
 
-    wss.on('connection', (ws, req) => {
+    wss.on('connection', async (ws, req) => {
         const url = new URL(req.url, 'http://localhost');
         const token = url.searchParams.get('token');
         const session = getSession(token);
@@ -29,11 +30,19 @@ function attach(server) {
             return;
         }
 
+        try {
+            await permissionService.getUserPermissions(session.userId, session.roleCode);
+        } catch (err) {
+            if (isDebug()) console.error(`→ WS AUTH ERROR from ${req.socket.remoteAddress}`, err.message);
+            ws.close(1011, 'Authorization unavailable');
+            return;
+        }
+
         const label = `${session.username}@${req.socket.remoteAddress}`;
         if (isDebug()) console.log(`→ WS CONNECTED [${label}]`);
 
         proxySend(ws, label);
-        hub.addWsClient(ws);
+        hub.addWsClient(ws, { sessionToken: session.token });
 
         ws.send(JSON.stringify({ type: 'hello', time: new Date().toISOString() }));
 

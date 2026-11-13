@@ -29,8 +29,8 @@ async function tick() {
         });
         try {
             await saveLog(draftLog, scps);
-            hub.broadcast('log:upsert', draftLog, null);
-            hub.broadcast('schedule:due', { schedule, logId: draftLog.id }, null);
+            await hub.broadcast('log:upsert', draftLog, null);
+            await hub.broadcast('schedule:due', { schedule, logId: draftLog.id }, null);
         } catch (err) {
             console.error('Scheduler: failed to create draft log for schedule', schedule.id, err);
         }

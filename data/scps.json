@@ -209,13 +209,6 @@
     "name": "Blue Key",
     "sector": ""
   },
-  "902": {
-    "class": "keter",
-    "clearance": 0,
-    "location": "c1",
-    "name": "The Final Countdown",
-    "sector": ""
-  },
   "914": {
     "class": "safe",
     "clearance": 0,

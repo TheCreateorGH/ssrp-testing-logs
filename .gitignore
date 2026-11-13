@@ -3,5 +3,5 @@ logs
 facility_logs
 data
 !data/scps.json
-!data/settings.json
+!data/permissions_config.json
 streamdeck-plugin

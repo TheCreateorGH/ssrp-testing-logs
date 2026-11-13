@@ -1,4 +1,186 @@
 const BROADCAST_MAX_LEN = 200 - "/broadcast ".length;
+const SCP_SESSION_KEY = 'ssrp_session';
+
+const SCP_CLASS_ACCENTS = {
+    safe: '#2ee6a6',
+    euclid: '#ffcc4d',
+    keter: '#ff3b5c'
+};
+
+const SCP_LOCATION_ORDER = ['c1', 'c2', 'cx', 'lcx'];
+const SCP_CLASS_ORDER = ['safe', 'euclid', 'keter'];
+const SCP_NAME_COLLATOR = new Intl.Collator(undefined, { sensitivity: 'base' });
+const selectedScps = [];
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+    }[char]));
+}
+
+function getStoredSessionToken() {
+    try {
+        const raw = sessionStorage.getItem(SCP_SESSION_KEY) || localStorage.getItem(SCP_SESSION_KEY);
+        return raw ? JSON.parse(raw).token : null;
+    } catch (error) {
+        console.error('Unable to read the persisted SSRP session.', error);
+        return null;
+    }
+}
+
+function formatScpValue(value, fallback = 'Unassigned') {
+    if (value === -1) return 'Unrestricted';
+    if (value === null || value === undefined || value === '') return fallback;
+    return String(value).toUpperCase();
+}
+
+function isScpBreached(scp) {
+    return scp?.containmentStatus === 'breached'
+        || scp?.status === 'breached'
+        || scp?.breached === true;
+}
+
+function toggleScpSelection(scp) {
+    const selectedIndex = selectedScps.indexOf(scp);
+    if (selectedIndex === -1) {
+        selectedScps.push(scp);
+    } else {
+        selectedScps.splice(selectedIndex, 1);
+    }
+
+    const card = document.querySelector(`.scp-card[data-scp="${CSS.escape(scp)}"]`);
+    if (card) {
+        const selected = selectedScps.includes(scp);
+        card.classList.toggle('scp-card--selected', selected);
+        card.setAttribute('aria-pressed', String(selected));
+    }
+    updateBroadcast();
+}
+
+function renderScpCards(scps) {
+    const list = document.getElementById('scpList');
+    const count = document.getElementById('scpCount');
+    const entries = Object.entries(scps || {}).sort(([firstId, first], [secondId, second]) => {
+        const breachOrder = Number(isScpBreached(second)) - Number(isScpBreached(first));
+        if (breachOrder) return breachOrder;
+
+        const firstLocation = SCP_LOCATION_ORDER.indexOf(String(first.location || '').toLowerCase());
+        const secondLocation = SCP_LOCATION_ORDER.indexOf(String(second.location || '').toLowerCase());
+        const locationOrder = (firstLocation === -1 ? SCP_LOCATION_ORDER.length : firstLocation)
+            - (secondLocation === -1 ? SCP_LOCATION_ORDER.length : secondLocation);
+        if (locationOrder) return locationOrder;
+
+        const firstClass = SCP_CLASS_ORDER.indexOf(String(first.class || '').toLowerCase());
+        const secondClass = SCP_CLASS_ORDER.indexOf(String(second.class || '').toLowerCase());
+        const classOrder = (firstClass === -1 ? SCP_CLASS_ORDER.length : firstClass)
+            - (secondClass === -1 ? SCP_CLASS_ORDER.length : secondClass);
+        if (classOrder) return classOrder;
+
+        const nameOrder = SCP_NAME_COLLATOR.compare(first.name || '', second.name || '');
+        return nameOrder || SCP_NAME_COLLATOR.compare(firstId, secondId);
+    });
+
+    count.textContent = entries.length;
+    if (!entries.length) {
+        list.innerHTML = '<div class="scp-state">No SCP records available.</div>';
+        return;
+    }
+
+    let hadBreachedCard = false;
+    let insertedBreachedDivider = false;
+    let insertedContainedDivider = false;
+    list.innerHTML = entries.map(([id, scp], index) => {
+        const classification = String(scp.class || 'unknown').toLowerCase();
+        const accent = SCP_CLASS_ACCENTS[classification] || '#4d8dff';
+        const breached = isScpBreached(scp);
+        const divider = breached && !insertedBreachedDivider
+            ? '<div class="scp-divider scp-divider--breached" role="separator"><span>Breached</span></div>'
+            : !breached && hadBreachedCard && !insertedContainedDivider
+                ? '<div class="scp-divider" role="separator"><span>Contained</span></div>'
+                : '';
+        insertedBreachedDivider = insertedBreachedDivider || Boolean(breached);
+        insertedContainedDivider = insertedContainedDivider || (!breached && Boolean(divider));
+        hadBreachedCard = hadBreachedCard || breached;
+        return `${divider}
+            <article class="scp-card${breached ? ' scp-card--breached' : ''}${selectedScps.includes(id) ? ' scp-card--selected' : ''}" data-scp="${escapeHtml(id)}" role="button" tabindex="0" aria-pressed="${selectedScps.includes(id)}" style="--scp-accent:${accent}; animation-delay:${Math.min(index, 12) * 25}ms">
+                <div class="scp-card__top">
+                    <span class="scp-card__id">SCP-${escapeHtml(id)}</span>
+                    <span class="scp-card__class">${escapeHtml(classification)}</span>
+                </div>
+                <div class="scp-card__identity">
+                    <h3 class="scp-card__name">${escapeHtml(scp.name || 'Unnamed anomaly')}</h3>
+                    <span class="scp-card__signal" aria-hidden="true"></span>
+                </div>
+                <div class="scp-card__meta">
+                    <div class="scp-card__meta-item">
+                        <span class="scp-card__meta-label">Clearance</span>
+                        <span class="scp-card__meta-value">${escapeHtml(formatScpValue(scp.clearance, 'Not set'))}</span>
+                    </div>
+                    <div class="scp-card__meta-item">
+                        <span class="scp-card__meta-label">Location</span>
+                        <span class="scp-card__meta-value">${escapeHtml(formatScpValue(scp.location))}</span>
+                    </div>
+                    <div class="scp-card__meta-item">
+                        <span class="scp-card__meta-label">Sector</span>
+                        <span class="scp-card__meta-value">${escapeHtml(formatScpValue(scp.sector))}</span>
+                    </div>
+                    <div class="scp-card__meta-item">
+                        <span class="scp-card__meta-label">Record</span>
+                        <span class="scp-card__meta-value${breached ? ' scp-card__record--breached' : ''}">${breached ? 'BREACHED' : 'CONTAINED'}</span>
+                    </div>
+                </div>
+            </article>
+        `;
+    }).join('');
+}
+
+async function loadScpCatalog() {
+    const list = document.getElementById('scpList');
+    const token = getStoredSessionToken();
+    if (!token) {
+        list.innerHTML = '<div class="scp-state">Sign in through the console to load the catalog.</div>';
+        return;
+    }
+
+    try {
+        const headers = { 'X-Session-Token': token };
+        const [catalogResponse, containmentResponse, eventsResponse] = await Promise.all([
+            fetch('/api/scps', { headers }),
+            fetch('/api/containment', { headers }),
+            fetch('/api/events', { headers })
+        ]);
+        if (!catalogResponse.ok) throw new Error(`Catalog request failed (${catalogResponse.status})`);
+        if (!containmentResponse.ok) throw new Error(`Containment request failed (${containmentResponse.status})`);
+        if (!eventsResponse.ok) throw new Error(`Events request failed (${eventsResponse.status})`);
+
+        const [catalog, containment, events] = await Promise.all([
+            catalogResponse.json(),
+            containmentResponse.json(),
+            eventsResponse.json()
+        ]);
+        const endedBreachIds = new Set(
+            events.filter(event => event.type === 'BREACH_END').map(event => event.linkedEventId)
+        );
+        const activeBreachScps = new Set(
+            events
+                .filter(event => ['BREACH', 'CDC_RIOT'].includes(event.type) && !endedBreachIds.has(event.id))
+                .map(event => event.scp)
+                .filter(Boolean)
+        );
+        const records = Object.fromEntries(Object.entries(catalog).map(([id, scp]) => [
+            id,
+            {
+                ...scp,
+                containmentStatus: containment[id]?.status
+                    || (activeBreachScps.has(id) ? 'breached' : undefined)
+            }
+        ]));
+        renderScpCards(records);
+    } catch (error) {
+        console.error('Unable to load SCP catalog.', error);
+        list.innerHTML = '<div class="scp-state">Catalog unavailable. Return to the console and retry.</div>';
+    }
+}
 
 // Mapping-Tabellen zur Umwandlung der HTML-Option-Values in die Python-Textformate
 const ALARM_MAP = {
@@ -57,7 +239,7 @@ const SELECT_COLOR_MAPPINGS = {
     '#alarmType': 'alarm',
     '#threadType': 'thread',
     '#cdcStatus': 'cdc',
-    'select#testingStatus': 'testingStatus',
+    '#testingStatus': 'testingStatus',
     '#dangerTestingStatus': 'testingStatus'
 };
 
@@ -124,19 +306,23 @@ function updateDropdownColors() {
     });
 }
 
+function formatBreachStatus() {
+    if (selectedScps.length > 3) return 'Multiple breaches';
+    if (selectedScps.length === 0) return 'No breaches';
+    return `${selectedScps.join(', ')} breached`;
+}
+
 function generateStatusMessage() {
     // 1. Werte aus den HTML-Elementen auslesen
     const alarmKey = document.getElementById('alarmType')?.value || 'none';
     const threatKey = document.getElementById('threadType')?.value || 'low';
     const cdcKey = document.getElementById('cdcStatus')?.value || 'off';
     
-    // Spezifischer Selector für select#testingStatus, um den ID-Konflikt mit dem Wrapper-Div zu umgehen
-    const testingSelect = document.querySelector('select#testingStatus');
+    const testingSelect = document.getElementById('testingStatus');
     const testingKey = testingSelect?.value || '0';
     
     const heavyTestingKey = document.getElementById('dangerTestingStatus')?.value || '0';
 
-    const breachCount = parseInt(document.getElementById('breachCount')?.value, 10) || 0;
     const ciCount = parseInt(document.getElementById('ciCount')?.value, 10) || 0;
     const cdCount = parseInt(document.getElementById('cdCount')?.value, 10) || 0;
     const notesInput = document.getElementById('broadcastText');
@@ -149,7 +335,7 @@ function generateStatusMessage() {
     const heavyTestingStatus = TESTING_MAP[heavyTestingKey] || 'allowed';
 
     // 3. Status-String gemäß Python-Logik zusammensetzen
-    const breachStr = breachCount === 1 ? '1 Breach' : `${breachCount} Breaches`;
+    const breachStr = formatBreachStatus();
     const testingStr = `Testing ${testingStatus}`;
 const heavyTestingStr = `CX + LCX Testing ${heavyTestingStatus}`;
 
@@ -181,6 +367,11 @@ function updateBroadcast() {
         commandOutputElement.textContent = `/broadcast ${generateStatusMessage()}`;
     }
     updateDropdownColors();
+    document.querySelectorAll('.output-box').forEach((box) => {
+        box.classList.remove('is-updated');
+        void box.offsetWidth;
+        box.classList.add('is-updated');
+    });
 }
 
 async function copyToClipboard(text) {
@@ -222,14 +413,17 @@ copyButtons.forEach(button => {
         const success = await copyToClipboard(textToCopy);
         if (success) {
             button.innerHTML = '<svg class="icon"><use href="#icon-tick"/></svg>';
+            button.classList.add('is-copied');
             setTimeout(() => {
                 button.innerHTML = '<svg class="icon"><use href="#icon-copy"/></svg>';
+                button.classList.remove('is-copied');
             }, 2000);
             console.log('Text erfolgreich in die Zwischenablage kopiert.');
         } else {
             button.innerHTML = '<svg class="icon"><use href="#icon-alert-triangle"/></svg>';
             setTimeout(() => {
                 button.innerHTML = '<svg class="icon"><use href="#icon-copy"/></svg>';
+                button.classList.remove('is-copied');
             }, 2000);
             console.error('Fehler beim Kopieren in die Zwischenablage.');
         }
@@ -238,6 +432,20 @@ copyButtons.forEach(button => {
 
 document.addEventListener('DOMContentLoaded', () => {
     updateDropdownColors();
+    loadScpCatalog();
+
+    const scpList = document.getElementById('scpList');
+    scpList?.addEventListener('click', event => {
+        const card = event.target.closest('.scp-card');
+        if (card) toggleScpSelection(card.dataset.scp);
+    });
+    scpList?.addEventListener('keydown', event => {
+        const card = event.target.closest('.scp-card');
+        if (card && (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault();
+            toggleScpSelection(card.dataset.scp);
+        }
+    });
 
 
     // Event-Listener an alle Input- und Select-Felder hängen
@@ -245,8 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
         '#alarmType',
         '#threadType',
         '#cdcStatus',
-        '#breachCount',
-        'select#testingStatus',
+        '#testingStatus',
         '#dangerTestingStatus',
         '#ciCount',
         '#cdCount',
@@ -259,5 +466,13 @@ document.addEventListener('DOMContentLoaded', () => {
             el.addEventListener('input', updateBroadcast);
             el.addEventListener('change', updateBroadcast);
         }
+    });
+
+    document.querySelectorAll('select').forEach(select => {
+        select.addEventListener('change', () => {
+            select.classList.remove('is-sliding');
+            void select.offsetWidth;
+            select.classList.add('is-sliding');
+        });
     });
 });

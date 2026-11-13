@@ -38,7 +38,7 @@ async function createEvent(req, res) {
     const sessionId = req.body.sessionId || await getActiveSessionId();
     const event = { ...req.body, id, createdAt: now, updatedAt: now, sessionId, loggedBy: req.session.name, loggedByRole: req.session.roleCode };
     await saveEvent(event);
-    hub.broadcast('event:created', event, req.headers['x-client-id']);
+    await hub.broadcast('event:created', event, req.headers['x-client-id']);
     res.status(201).json(event);
 }
 
@@ -46,7 +46,7 @@ async function removeEvent(req, res) {
     if (!await deleteEventFile(req.params.id)) {
         return res.status(404).json({ error: 'Not found' });
     }
-    hub.broadcast('event:deleted', { id: req.params.id }, req.headers['x-client-id']);
+    await hub.broadcast('event:deleted', { id: req.params.id }, req.headers['x-client-id']);
     res.json({ deleted: true });
 }
 

@@ -14,7 +14,7 @@ async function importLog(req, res) {
         }
 
         await saveLog(log, await readSCPs());
-        hub.broadcast('log:upsert', log, req.headers['x-client-id']);
+        await hub.broadcast('log:upsert', log, req.headers['x-client-id']);
         res.json({ success: true, log });
     } catch (e) {
         // Any failure here (bad YAML, bad payload shape) is a client

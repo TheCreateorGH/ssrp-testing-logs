@@ -745,7 +745,7 @@ const Drawer = {
 function renderSeg({ group, options, value, size = '' }) {
     const cls = `seg${size ? ' seg--' + size : ''}`;
     return `<div class="${cls}" data-seg-group="${escHtml(group)}">${options.map(o => `
-    <button type="button" class="seg__btn${value === o.v ? ' is-active' : ''}"
+    <button type="button" class="seg__btn${value === o.v ? ' is-active is-sliding' : ''}"
       data-action="seg-pick" data-group="${escHtml(group)}" data-value="${escHtml(o.v)}" data-tone="${o.tone}">
       ${o.l ? escHtml(I18n.t(o.l)) : escHtml(o.v)}
     </button>`).join('')}</div>`;
@@ -754,14 +754,20 @@ function renderSeg({ group, options, value, size = '' }) {
 function renderNumSeg({ field, max, value }) {
     let html = `<div class="seg seg--num" data-num-field="${escHtml(field)}">`;
     for (let i = 0; i <= max; i++) {
-        html += `<button type="button" class="seg__btn${value === i ? ' is-active' : ''}" data-action="num-pick" data-field="${escHtml(field)}" data-value="${i}">${i}</button>`;
+        html += `<button type="button" class="seg__btn${value === i ? ' is-active is-sliding' : ''}" data-action="num-pick" data-field="${escHtml(field)}" data-value="${i}">${i}</button>`;
     }
     return html + '</div>';
 }
 
 function syncSeg(group, value) {
     document.querySelectorAll(`[data-seg-group="${CSS.escape(group)}"] .seg__btn`).forEach(btn => {
-        btn.classList.toggle('is-active', btn.dataset.value === value);
+        const isActive = btn.dataset.value === value;
+        btn.classList.toggle('is-active', isActive);
+        btn.classList.remove('is-sliding');
+        if (isActive) {
+            void btn.offsetWidth;
+            btn.classList.add('is-sliding');
+        }
     });
 }
 
@@ -3253,6 +3259,14 @@ function wireStaticListeners() {
 
     // Admin permission matrix — role selector
     document.getElementById('permRoleSelect').addEventListener('change', e => Admin.selectRole(e.target.value));
+
+    document.querySelectorAll('select').forEach(select => {
+        select.addEventListener('change', () => {
+            select.classList.remove('is-sliding');
+            void select.offsetWidth;
+            select.classList.add('is-sliding');
+        });
+    });
 
     initShortcuts();
 }

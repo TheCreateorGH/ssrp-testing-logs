@@ -12,7 +12,7 @@ async function setStatus(req, res) {
     }
     // Permission already checked by requirePermission('MANAGE:CONTAINMENT') at the route level.
     const override = await setOverride(req.params.scp, status, req.session.name);
-    hub.broadcast('containment:override', { scp: req.params.scp, ...override }, req.headers['x-client-id']);
+    await hub.broadcast('containment:override', { scp: req.params.scp, ...override }, req.headers['x-client-id']);
     res.json(override);
 }
 

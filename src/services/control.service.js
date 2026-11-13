@@ -51,7 +51,7 @@ async function record(req, fields) {
     };
     delete event.source;
     await saveEvent(event);
-    hub.broadcast('event:created', event, req.headers['x-client-id']);
+    await hub.broadcast('event:created', event, req.headers['x-client-id']);
     return event;
 }
 

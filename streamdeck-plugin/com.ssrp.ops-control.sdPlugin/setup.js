@@ -1,9 +1,63 @@
 let settings = {};
 const $ = id => document.getElementById(id);
+let socket;
+let inspectorUuid;
+let actionInfo;
+const listeners = new Map();
+
+function emit(event, payload) {
+  listeners.get(event)?.forEach(listener => listener({ payload }));
+}
+
+function sendMessage(event, payload = {}) {
+  socket?.send(JSON.stringify({
+    context: inspectorUuid,
+    event,
+    ...payload
+  }));
+}
+
+window.$SD = {
+  on(event, listener) {
+    if (!listeners.has(event)) listeners.set(event, []);
+    listeners.get(event).push(listener);
+  },
+  api: {
+    getGlobalSettings() {
+      sendMessage('getGlobalSettings');
+    },
+    sendToPlugin(payload) {
+      sendMessage('sendToPlugin', {
+        action: actionInfo?.action,
+        payload
+      });
+    }
+  }
+};
+
+function connectElgatoStreamDeckSocket(port, uuid, registerEvent, info, rawActionInfo) {
+  inspectorUuid = uuid;
+  actionInfo = typeof rawActionInfo === 'string' ? JSON.parse(rawActionInfo) : rawActionInfo;
+  socket = new WebSocket(`ws://127.0.0.1:${port}`);
+  socket.addEventListener('open', () => {
+    sendMessage(registerEvent, { uuid: inspectorUuid });
+    window.$SD.api.getGlobalSettings();
+  });
+  socket.addEventListener('message', event => {
+    let message;
+    try {
+      message = JSON.parse(event.data);
+    } catch {
+      return;
+    }
+    if (message.event === 'didReceiveGlobalSettings') {
+      emit('didReceiveGlobalSettings', message.payload);
+    }
+  });
+}
 
 function send(payload) {
-  document.dispatchEvent(new CustomEvent('sendToPlugin', { detail: payload }));
-  if (window.$SD) window.$SD.api.sendToPlugin(payload);
+  window.$SD.api.sendToPlugin(payload);
 }
 
 function render() {

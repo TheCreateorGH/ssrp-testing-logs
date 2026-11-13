@@ -8,9 +8,7 @@ const { readAllLogs } = require('./src/services/log.service');
 const scheduler = require('./src/realtime/scheduler');
 const userService = require('./src/services/user.service');
 const logSessionService = require('./src/services/logsession.service');
-const websocket = require('./src/realtime/websocket');
-
-const PORT = process.env.PORT || 3000;
+const { IP, PORT } = require('./src/config/network');
 
 app.post('/api/execute', async (req, res) => {
     const { command, args } = req.body;
@@ -48,14 +46,14 @@ app.post('/api/execute', async (req, res) => {
     const server = http.createServer(app);
     websocket.attach(server);
 
-    server.listen(PORT, async () => {
+    server.listen(PORT, IP, async () => {
         const logs = await readAllLogs();
         scheduler.start();
         console.silent(`
 ╔════════════════════════════════════════════════════╗
 ║  ☣  SSRP TEST LOG SYSTEM  v2.0  — ONLINE           ║
-║  http://localhost:${PORT}                             ║
-║  WebSocket:  ws://localhost:${PORT}/ws                 ║
+║  http://${IP}:${PORT}                             ║
+║  WebSocket:  ws://${IP}:${PORT}/ws                 ║
 ║  Loaded ${String(logs.length).padEnd(3)} existing log(s) from /logs/        ║
 ╚════════════════════════════════════════════════════╝
 `);

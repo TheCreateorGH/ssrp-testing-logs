@@ -5,12 +5,9 @@
    Capacitor WebView wrapper where relative URLs don't resolve to the
    packaged Node server).
    ═══════════════════════════════════════════════════════════════════════ */
-let API_BASE = (
-    window.location.hostname === 'localhost' ||
-    window.location.hostname === '127.0.0.1' ||
-    window.location.protocol === 'capacitor:' ||
-    (window.location.protocol === 'http:' && window.location.port !== '3000')
-) ? 'http://127.0.0.1:3000' : '';
+let API_BASE = window.location.protocol === 'capacitor:'
+    ? (window.__API_BASE__ || '')
+    : '';
 
 /** Identifies this browser tab so realtime broadcasts it caused itself
  *  can be applied without also popping a "new entry" toast at itself. */

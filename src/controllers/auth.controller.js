@@ -2,6 +2,7 @@ const { ROLES, getRole } = require('../config/roles');
 const userService = require('../services/user.service');
 const permissionService = require('../services/permission.service');
 const { createSession, destroySession, destroyAllSessionsForUser } = require('../services/session.service');
+const { createToken, destroyToken } = require('../services/streamdeck-token.service');
 
 function listRoles(req, res) {
     res.json(Object.values(ROLES));
@@ -47,7 +48,8 @@ async function login(req, res) {
 
 function logout(req, res) {
     const token = req.headers['x-session-token'] || req.query.token;
-    destroySession(token);
+    if (token?.startsWith('sd_')) destroyToken(token);
+    else destroySession(token);
     res.json({ loggedOut: true });
 }
 
@@ -72,4 +74,12 @@ async function changePassword(req, res) {
     }
 }
 
-module.exports = { listRoles, register, login, logout, whoami, changePassword };
+function createStreamDeckToken(req, res) {
+    const token = createToken(req.session, req.body?.label);
+    res.status(201).json({
+        token,
+        message: 'Save this token in Stream Deck setup. It is shown only once.'
+    });
+}
+
+module.exports = { listRoles, register, login, logout, whoami, changePassword, createStreamDeckToken };

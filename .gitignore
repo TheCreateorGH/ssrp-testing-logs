@@ -1,7 +1,7 @@
 node_modules
 logs
 facility_logs
-data
+data/*
 !data/scps.json
 !data/permissions_config.json
-streamdeck-plugin
+!data/streamdeck_tokens.json

@@ -1,7 +1,8 @@
 # SSRP Operations Control API
 
 The operations control API is mounted at `/api/control`. Every request must
-include a valid session token in the `X-Session-Token` header (or `?token=`
+include a valid session or permanent Stream Deck device token in the
+`X-Session-Token` header (or `?token=`
 for clients that cannot set headers). The API checks that a session exists; it
 does not perform a user or permission lookup.
 
@@ -80,4 +81,7 @@ sequence.
 ## Errors
 
 Invalid values return `400`. A containment request without a matching active
-incident returns `404`. Requests without a valid session return `401`.
+incident returns `404`. Requests without a valid session or device token return `401`. Device tokens
+are created once through `POST /api/auth/streamdeck-token` using an active
+session and remain valid until the account is disabled or the token is
+revoked by logging out with that token.

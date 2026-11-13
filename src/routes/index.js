@@ -15,7 +15,6 @@ const logSessionRoutes = require('./logsession.routes');
 const containmentRoutes = require('./containment.routes');
 const controlRoutes = require('./control.routes');
 const { verifyIdentity, requirePermission } = require('../middleware/permission.middleware');
-const { requireAuth } = require('../middleware/auth.middleware');
 
 const router = Router();
 
@@ -37,8 +36,8 @@ router.use('/schedules', verifyIdentity, scheduleRoutes);
 router.use('/cross-test', verifyIdentity, crossTestRoutes);
 router.use('/log-sessions', verifyIdentity, logSessionRoutes);
 router.use('/containment', verifyIdentity, containmentRoutes);
-// The control API intentionally checks only for an active session. It is
-// suitable for trusted facility consoles that do not need per-user lookup.
-router.use('/control', requireAuth, controlRoutes);
+// Control actions use the same identity refresh as the web console, so a
+// deleted or suspended account cannot keep using a permanent device token.
+router.use('/control', verifyIdentity, controlRoutes);
 
 module.exports = router;

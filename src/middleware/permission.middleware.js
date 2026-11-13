@@ -1,6 +1,7 @@
 const userService = require('../services/user.service');
 const permissionService = require('../services/permission.service');
 const { destroySession } = require('../services/session.service');
+const { destroyToken } = require('../services/streamdeck-token.service');
 
 /**
  * Every protected request must pass through here first. It does NOT
@@ -21,12 +22,14 @@ async function verifyIdentity(req, res, next) {
 
     if (!user) {
         console.warn(`[AUTH] session token points to a deleted user (${req.session.userId}) — destroying session`);
-        destroySession(req.session.token);
+        if (req.session.deviceToken) destroyToken(req.session.token);
+        else destroySession(req.session.token);
         return res.status(401).json({ error: 'Account no longer exists.' });
     }
     if (user.status !== 'ACTIVE') {
         console.warn(`[AUTH] user ${user.username} has status ${user.status} — rejecting and destroying session`);
-        destroySession(req.session.token);
+        if (req.session.deviceToken) destroyToken(req.session.token);
+        else destroySession(req.session.token);
         return res.status(401).json({ error: `Account is ${user.status.toLowerCase()}.`, reason: user.status });
     }
 

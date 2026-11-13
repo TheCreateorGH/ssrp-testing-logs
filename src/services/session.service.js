@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const streamdeckTokenService = require('./streamdeck-token.service');
 
 /** token -> { token, userId, username, name, roleCode, roleName, clearance, createdAt } */
 const sessions = new Map();
@@ -22,7 +23,7 @@ function createSession(user, roleName) {
 
 function getSession(token) {
     if (!token) return null;
-    return sessions.get(token) || null;
+    return sessions.get(token) || streamdeckTokenService.getSession(token);
 }
 
 function destroySession(token) {

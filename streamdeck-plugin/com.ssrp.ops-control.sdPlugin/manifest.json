@@ -1,0 +1,29 @@
+{
+  "Actions": [
+    { "UUID": "com.ssrp.ops-control.alarm.none", "Name": "Alarm: None", "Tooltip": "Set alarm to None", "Icon": "images/alarm-none.svg", "PropertyInspectorPath": "setup.html" },
+    { "UUID": "com.ssrp.ops-control.alarm.class-d", "Name": "Alarm: Class-D", "Tooltip": "Set alarm to Class-D", "Icon": "images/alarm-class-d.svg", "PropertyInspectorPath": "setup.html" },
+    { "UUID": "com.ssrp.ops-control.alarm.chaos-insurgency", "Name": "Alarm: Chaos Insurgency", "Tooltip": "Set alarm to Chaos Insurgency", "Icon": "images/alarm-chaos-insurgency.svg", "PropertyInspectorPath": "setup.html" },
+    { "UUID": "com.ssrp.ops-control.alarm.breach", "Name": "Alarm: Breach", "Tooltip": "Set alarm to Breach", "Icon": "images/alarm-breach.svg", "PropertyInspectorPath": "setup.html" },
+    { "UUID": "com.ssrp.ops-control.alarm.site-lockdown", "Name": "Alarm: Site Lockdown", "Tooltip": "Set alarm to Site Lockdown", "Icon": "images/alarm-site-lockdown.svg", "PropertyInspectorPath": "setup.html" },
+    { "UUID": "com.ssrp.ops-control.threat.low", "Name": "Threat: Low", "Tooltip": "Set threat to Low", "Icon": "images/threat-low.svg", "PropertyInspectorPath": "setup.html" },
+    { "UUID": "com.ssrp.ops-control.threat.medium", "Name": "Threat: Medium", "Tooltip": "Set threat to Medium", "Icon": "images/threat-medium.svg", "PropertyInspectorPath": "setup.html" },
+    { "UUID": "com.ssrp.ops-control.threat.high", "Name": "Threat: High", "Tooltip": "Set threat to High", "Icon": "images/threat-high.svg", "PropertyInspectorPath": "setup.html" },
+    { "UUID": "com.ssrp.ops-control.cdc.on", "Name": "CDC: On", "Tooltip": "Set CDC to On", "Icon": "images/cdc-on.svg", "PropertyInspectorPath": "setup.html" },
+    { "UUID": "com.ssrp.ops-control.cdc.off", "Name": "CDC: Off", "Tooltip": "Set CDC to Off", "Icon": "images/cdc-off.svg", "PropertyInspectorPath": "setup.html" },
+    { "UUID": "com.ssrp.ops-control.warhead.initialized", "Name": "Warhead: Initialize", "Tooltip": "Initialize warhead sequence", "Icon": "images/warhead-initialized.svg", "PropertyInspectorPath": "setup.html" },
+    { "UUID": "com.ssrp.ops-control.warhead.surface-sealed", "Name": "Warhead: Surface sealed", "Tooltip": "Seal the surface", "Icon": "images/warhead-surface-sealed.svg", "PropertyInspectorPath": "setup.html" },
+    { "UUID": "com.ssrp.ops-control.warhead.exploded", "Name": "Warhead: Detonate", "Tooltip": "Detonate the warhead", "Icon": "images/warhead-exploded.svg", "PropertyInspectorPath": "setup.html" },
+    { "UUID": "com.ssrp.ops-control.warhead.autonuke", "Name": "Warhead: Autonuke", "Tooltip": "Start the autonuke sequence", "Icon": "images/warhead-autonuke.svg", "PropertyInspectorPath": "setup.html" }
+  ],
+  "Author": "SSRP",
+  "CodePath": "plugin/index.js",
+  "Description": "SSRP operations control buttons",
+  "Name": "SSRP Ops Control",
+  "Icon": "images/plugin.svg",
+  "Version": "2.0.0",
+  "SDKVersion": 2,
+  "OS": [
+    { "Platform": "mac", "MinimumVersion": "10.15" },
+    { "Platform": "windows", "MinimumVersion": "10" }
+  ]
+}

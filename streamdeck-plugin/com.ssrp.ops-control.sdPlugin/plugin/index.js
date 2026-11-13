@@ -1,8 +1,19 @@
+const fs = require('fs');
+const path = require('path');
 const WebSocket = require('ws');
 
 const [port, pluginUUID, registerEvent] = process.argv.slice(2);
 const ws = new WebSocket(`ws://127.0.0.1:${port}`);
 const globalSettings = {};
+const logFile = path.join(__dirname, '..', 'plugin.log');
+
+function log(message) {
+    try {
+        fs.appendFileSync(logFile, `[${new Date().toISOString()}] ${message}\n`);
+    } catch (error) {
+        console.error('[SSRP] Could not write plugin log:', error.message);
+    }
+}
 
 const actions = {
     'com.ssrp.ops-control.alarm.none': { endpoint: '/api/control/alarm', body: { value: 'None' }, title: 'Alarm: None' },
@@ -35,6 +46,7 @@ function baseUrl() {
 
 async function request(context, action) {
     if (!globalSettings.apiBaseUrl || !globalSettings.token) {
+        log(`request skipped action=${action.title} apiBaseUrl=${baseUrl() || '(missing)'} tokenConfigured=${Boolean(globalSettings.token)}`);
         setTitle(context, 'Setup');
         return;
     }
@@ -48,12 +60,17 @@ async function request(context, action) {
         body: JSON.stringify(action.body)
     });
     const result = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+    if (!response.ok) {
+        const error = new Error(result.error || `HTTP ${response.status}`);
+        error.status = response.status;
+        throw error;
+    }
     setTitle(context, 'Done');
     setTimeout(() => setTitle(context, action.title), 1600);
 }
 
 ws.on('open', () => {
+    log(`connected; requesting global settings for ${pluginUUID}`);
     send(registerEvent, { uuid: pluginUUID });
     send('getGlobalSettings', { context: pluginUUID });
 });
@@ -63,10 +80,12 @@ ws.on('message', async raw => {
     try { message = JSON.parse(raw.toString()); } catch { return; }
     if (message.event === 'didReceiveGlobalSettings') {
         Object.assign(globalSettings, message.payload?.settings || {});
+        log(`settings loaded; apiBaseUrl=${baseUrl() || '(missing)'} tokenConfigured=${Boolean(globalSettings.token)}`);
         return;
     }
     if (message.event === 'sendToPlugin') {
         Object.assign(globalSettings, message.payload || {});
+        log(`settings updated; apiBaseUrl=${baseUrl() || '(missing)'} tokenConfigured=${Boolean(globalSettings.token)}`);
         send('setGlobalSettings', { context: pluginUUID, payload: globalSettings });
         return;
     }
@@ -75,9 +94,14 @@ ws.on('message', async raw => {
     const action = actions[message.action];
     if (!action) return;
     try {
+        log(`keyDown action=${message.action} apiBaseUrl=${baseUrl() || '(missing)'}`);
         await request(message.context, action);
     } catch (error) {
-        setTitle(message.context, 'Error');
+        const status = error.status ? `HTTP ${error.status}` : 'Error';
+        setTitle(message.context, status);
+        log(`request failed action=${message.action} status=${error.status || 'n/a'} message=${error.message}`);
         console.error('[SSRP]', error.message);
     }
 });
+
+ws.on('error', error => log(`websocket error message=${error.message}`));
